@@ -20,11 +20,13 @@ if uploaded_file:
     combined_labels = label_row_1 + ", " + label_row_2
 
     # Extract numeric data from row 3 onward and transpose
-    data = df.iloc[2:].reset_index(drop=True).transpose()
+    data = df.iloc[2:].reset_index(drop=True)
 
     # Convert all values to numeric and fill missing values using row-wise mean
     data = data.apply(pd.to_numeric, errors='coerce')
-    data = data.T.fillna(data.T.mean(axis=1)).T
+    data = data.fillna(data.T.mean(axis=1))
+
+    data = filled_data.transpose()
 
     # Standardize the data
     scaler = StandardScaler()
