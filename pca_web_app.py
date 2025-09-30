@@ -4,8 +4,9 @@ from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
 import plotly.express as px
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
 import io
-
 
 # Set up the Streamlit app
 st.title("Interactive PCA Visualization with K-Means Clustering")
@@ -44,8 +45,8 @@ if uploaded_file:
     plot_df = pd.DataFrame({
         f'PC1 ({explained_variance[0]:.2f}%)': pca_result[:, 0],
         f'PC2 ({explained_variance[1]:.2f}%)': pca_result[:, 1],
-        'Label 1': label_row_1[:len(pca_result)].values,
-        'Label 2': label_row_2[:len(pca_result)].values,
+        'Label 1': label_row_1[:len(pca_result)],
+        'Label 2': label_row_2[:len(pca_result)],
         'LegendLabel': combined_labels[:len(pca_result)],
         'Cluster': clusters
     })
@@ -54,7 +55,7 @@ if uploaded_file:
     for i, col in enumerate(data.columns):
         plot_df[f'Feature_{i+1}'] = data[col]
 
-    # Plot with clusters and shape legend for Label 2
+    # Plot with clusters and shapes
     fig = px.scatter(
         plot_df,
         x=f'PC1 ({explained_variance[0]:.2f}%)',
@@ -73,10 +74,32 @@ if uploaded_file:
 
     st.plotly_chart(fig, use_container_width=True)
 
-    # Save plot as PNG
-    if st.button("Save Plot as PNG"):
-        fig.write_image("pca_kmeans_plot.png")
-        st.success("Plot saved as pca_kmeans_plot.png")
+    # Save plot as PDF using matplotlib
+    if st.button("Save Plot as PDF"):
+        pdf_buffer = io.BytesIO()
+        with PdfPages(pdf_buffer) as pdf:
+            plt.figure(figsize=(8, 6))
+            for label2 in plot_df['Label 2'].unique():
+                subset = plot_df[plot_df['Label 2'] == label2]
+                plt.scatter(
+                    subset[f'PC1 ({explained_variance[0]:.2f}%)'],
+                    subset[f'PC2 ({explained_variance[1]:.2f}%)'],
+                    label=label2,
+                    alpha=0.7
+                )
+            plt.xlabel(f'PC1 ({explained_variance[0]:.2f}%)')
+            plt.ylabel(f'PC2 ({explained_variance[1]:.2f}%)')
+            plt.title('PCA Scatter Plot with K-Means Clustering')
+            plt.legend(title='Label 2')
+            plt.grid(True)
+            pdf.savefig()
+            plt.close()
+        st.download_button(
+            label="Download PCA Plot as PDF",
+            data=pdf_buffer.getvalue(),
+            file_name="pca_kmeans_plot.pdf",
+            mime="application/pdf"
+        )
 
     # Download PCA + Cluster data
     output = io.BytesIO()
