@@ -16,7 +16,7 @@ if uploaded_file:
 
     # Extract labels and data
     color_labels = df.iloc[0]
-    shape_labels = df.iloc[1]
+    legend_labels = df.iloc[1]  # Use this for legend
     data = df.iloc[2:].reset_index(drop=True)
 
     # Standardize the data
@@ -29,16 +29,11 @@ if uploaded_file:
 
     # Create a DataFrame for plotting
     plot_df = pd.DataFrame({
-    'PC1': pca_result[:, 0],
-    'PC2': pca_result[:, 1],
-    'Color': color_labels.values,
-    'LegendLabel': shape_labels.values  # Use this for legend
+        'PC1': pca_result[:, 0],
+        'PC2': pca_result[:, 1],
+        'Color': color_labels.values,
+        'LegendLabel': legend_labels.values  # Used for symbol legend
     })
-
-    # Map shapes to Plotly symbols
-    unique_shapes = sorted(plot_df['Shape'].unique())
-    symbol_map = {val: symbol for val, symbol in zip(unique_shapes, ['circle', 'square', 'triangle-up', 'diamond', 'cross', 'x'])}
-    plot_df['Symbol'] = plot_df['Shape'].map(symbol_map)
 
     # Create interactive plot
     fig = px.scatter(
@@ -46,14 +41,13 @@ if uploaded_file:
         x='PC1',
         y='PC2',
         color='Color',
-        symbol='LegendLabel',
-        symbol_sequence=list(symbol_map.values()),
+        symbol='LegendLabel',  # Use second row values directly
         title='PCA Scatter Plot',
         labels={'PC1': 'Principal Component 1', 'PC2': 'Principal Component 2'},
     )
 
     fig.update_layout(
-        legend_title_text='Color | Shape',
+        legend_title_text='Color | Second Row Label',
         dragmode='pan',
         hovermode='closest',
     )
@@ -69,7 +63,7 @@ if uploaded_file:
     # Provide download link for PCA plot data as Excel
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        plot_df.drop(columns='Symbol').to_excel(writer, index=False, sheet_name='PCA Plot Data')
+        plot_df.to_excel(writer, index=False, sheet_name='PCA Plot Data')
     st.download_button(
         label="Download PCA Plot Data as Excel",
         data=output.getvalue(),
