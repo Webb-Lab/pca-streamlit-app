@@ -45,45 +45,45 @@ if uploaded_file:
     plot_df = pd.DataFrame({
         'PC1': pca_result[:, 0],
         'PC2': pca_result[:, 1],
-        'LegendLabel': repeated_labels
+        'LegendLabel': repeated_labels})
     # Add original numeric values as hover data
-        for col in data.columns:
-            plot_df[f'Original_{col}'] = data[col]
-    })
+    for col in data.columns:
+        plot_df[f'Original_{col}'] = data[col]
+    
 
 
-# Create interactive PCA scatter plot
-fig = px.scatter(
-    plot_df,
-    x='PC1',
-    y='PC2',
-    color='LegendLabel',
-    hover_data=[f'Original_{col}' for col in data.columns],
-    title='PCA Scatter Plot',
-    labels={'PC1': 'Principal Component 1', 'PC2': 'Principal Component 2'}
-)
+    # Create interactive PCA scatter plot
+    fig = px.scatter(
+        plot_df,
+        x='PC1',
+        y='PC2',
+        color='LegendLabel',
+        hover_data=[f'Original_{col}' for col in data.columns],
+        title='PCA Scatter Plot',
+        labels={'PC1': 'Principal Component 1', 'PC2': 'Principal Component 2'}
+    )
 
-fig.update_layout(
-    legend_title_text='Combined Labels (Row 1, Row 2)',
-    dragmode='pan',
-    hovermode='closest'
-)
+    fig.update_layout(
+        legend_title_text='Combined Labels (Row 1, Row 2)',
+        dragmode='pan',
+        hovermode='closest'
+    )
 
-# Display the plot
-st.plotly_chart(fig, use_container_width=True)
+    # Display the plot
+    st.plotly_chart(fig, use_container_width=True)
 
-# Save plot as PNG
-if st.button("Save Plot as PNG"):
-    fig.write_image("pca_plot.png")
-    st.success("Plot saved as pca_plot.png")
+    # Save plot as PNG
+    if st.button("Save Plot as PNG"):
+        fig.write_image("pca_plot.png")
+        st.success("Plot saved as pca_plot.png")
 
-# Provide download link for PCA plot data as Excel
-output = io.BytesIO()
-with pd.ExcelWriter(output, engine='openpyxl') as writer:
-    plot_df.to_excel(writer, index=False, sheet_name='PCA Plot Data')
-st.download_button(
-    label="Download PCA Plot Data as Excel",
-    data=output.getvalue(),
-    file_name="pca_plot_data.xlsx",
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-)
+    # Provide download link for PCA plot data as Excel
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        plot_df.to_excel(writer, index=False, sheet_name='PCA Plot Data')
+    st.download_button(
+        label="Download PCA Plot Data as Excel",
+        data=output.getvalue(),
+        file_name="pca_plot_data.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
