@@ -35,19 +35,32 @@ if uploaded_file:
     pca = PCA(n_components=2)
     pca_result = pca.fit_transform(scaled_data)
 
+    
+    # Ensure label count matches number of PCA points
+    num_points = pca_result.shape[0]
+    num_labels = len(combined_labels)
+    repeated_labels = [combined_labels[i % num_labels] for i in range(num_points)]
+    
+
     # Create a DataFrame for plotting
     plot_df = pd.DataFrame({
         'PC1': pca_result[:, 0],
         'PC2': pca_result[:, 1],
-        'LegendLabel': combined_labels.values
+        'LegendLabel': repeated_labels
     })
 
-    # Create interactive plot
+    
+    # Add original numeric values as hover data
+    for col in data.columns:
+        plot_df[str(col)] = data[col]
+        
+    # Create interactive plot with hover tooltips
     fig = px.scatter(
         plot_df,
         x='PC1',
         y='PC2',
         color='LegendLabel',
+        hover_data=[str(col) for col in data.columns],
         title='PCA Scatter Plot',
         labels={'PC1': 'Principal Component 1', 'PC2': 'Principal Component 2'},
     )
