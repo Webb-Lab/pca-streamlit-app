@@ -7,16 +7,20 @@ import io
 
 # Set up the app
 st.title("Interactive PCA Visualization Web App")
-st.write("Upload an Excel file where the first two rows are labels and the rest are numeric data.")
+st.write("Upload an Excel file where the first two rows are descriptive labels and the rest are numeric data.")
 
 uploaded_file = st.file_uploader("Choose an Excel file", type=["xlsx", "xls"])
 
 if uploaded_file:
+    # Read the Excel file without headers
     df = pd.read_excel(uploaded_file, header=None, engine='openpyxl')
 
-    # Extract labels and data
-    color_labels = df.iloc[0]
-    legend_labels = df.iloc[1]  # Use this for legend
+    # Extract descriptive labels from first two rows and combine them
+    label_row_1 = df.iloc[0].astype(str)
+    label_row_2 = df.iloc[1].astype(str)
+    combined_labels = label_row_1 + ", " + label_row_2
+
+    # Extract numeric data starting from the third row
     data = df.iloc[2:].reset_index(drop=True)
 
     # Standardize the data
@@ -31,8 +35,7 @@ if uploaded_file:
     plot_df = pd.DataFrame({
         'PC1': pca_result[:, 0],
         'PC2': pca_result[:, 1],
-        'Color': color_labels.values,
-        'LegendLabel': legend_labels.values  # Used for symbol legend
+        'LegendLabel': combined_labels.values
     })
 
     # Create interactive plot
@@ -40,14 +43,13 @@ if uploaded_file:
         plot_df,
         x='PC1',
         y='PC2',
-        color='Color',
-        symbol='LegendLabel',  # Use second row values directly
+        color='LegendLabel',
         title='PCA Scatter Plot',
         labels={'PC1': 'Principal Component 1', 'PC2': 'Principal Component 2'},
     )
 
     fig.update_layout(
-        legend_title_text='Color | Second Row Label',
+        legend_title_text='Combined Labels (Row 1, Row 2)',
         dragmode='pan',
         hovermode='closest',
     )
