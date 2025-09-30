@@ -9,40 +9,44 @@ import io
 st.title("Interactive PCA Visualization Web App")
 st.write("This app visualizes PCA results from an Excel file. The first two rows are treated as descriptive labels and combined for legend entries.")
 
-# Read the Excel file without headers
-df = pd.read_excel(excel_file, header=None, engine='openpyxl')
+uploaded_file = st.file_uploader("Choose an Excel file", type=["xlsx", "xls"])
 
-# Extract the first two rows as string labels and clean whitespace
-label_row_1 = df.iloc[0].astype(str).str.strip()
-label_row_2 = df.iloc[1].astype(str).str.strip()
-combined_labels = label_row_1 + ", " + label_row_2
+if uploaded_file:
+    # Read the Excel file without headers
+    df = pd.read_excel(uploaded_file, header=None, engine='openpyxl')
 
-# Extract numeric data from row 3 onward
-data = df.iloc[2:].reset_index(drop=True)
 
-# Convert all values to numeric and fill missing values with column mean
-data = data.apply(pd.to_numeric, errors='coerce')
-data.fillna(data.mean(), inplace=True)
+    # Extract the first two rows as string labels and clean whitespace
+    label_row_1 = df.iloc[0].astype(str).str.strip()
+    label_row_2 = df.iloc[1].astype(str).str.strip()
+    combined_labels = label_row_1 + ", " + label_row_2
 
-# Standardize the data
-scaler = StandardScaler()
-scaled_data = scaler.fit_transform(data)
+    # Extract numeric data from row 3 onward
+    data = df.iloc[2:].reset_index(drop=True)
 
-# Perform PCA to reduce to 2 components
-pca = PCA(n_components=2)
-pca_result = pca.fit_transform(scaled_data)
+    # Convert all values to numeric and fill missing values with column mean
+    data = data.apply(pd.to_numeric, errors='coerce')
+    data.fillna(data.mean(), inplace=True)
 
-# Ensure the number of labels matches the number of PCA points
-num_points = pca_result.shape[0]
-num_labels = len(combined_labels)
-repeated_labels = [combined_labels[i % num_labels] for i in range(num_points)]
+    # Standardize the data
+    scaler = StandardScaler()
+    scaled_data = scaler.fit_transform(data)
 
-# Create a DataFrame for plotting with hover tooltips
-plot_df = pd.DataFrame({
-    'PC1': pca_result[:, 0],
-    'PC2': pca_result[:, 1],
-    'LegendLabel': repeated_labels
-})
+    # Perform PCA to reduce to 2 components
+    pca = PCA(n_components=2)
+    pca_result = pca.fit_transform(scaled_data)
+
+    # Ensure the number of labels matches the number of PCA points
+    num_points = pca_result.shape[0]
+    num_labels = len(combined_labels)
+    repeated_labels = [combined_labels[i % num_labels] for i in range(num_points)]
+
+    # Create a DataFrame for plotting with hover tooltips
+    plot_df = pd.DataFrame({
+        'PC1': pca_result[:, 0],
+        'PC2': pca_result[:, 1],
+        'LegendLabel': repeated_labels
+    })
 # Add original numeric values as hover data
 for col in data.columns:
     plot_df[f'Original_{col}'] = data[col]
