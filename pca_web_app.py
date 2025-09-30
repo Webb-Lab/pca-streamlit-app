@@ -25,7 +25,8 @@ if uploaded_file:
 
     # Convert all values to numeric and fill missing values with column mean
     data = data.apply(pd.to_numeric, errors='coerce')
-    data.fillna(data.mean(), inplace=True)
+    data = data.T.fillna(data.T.mean(axis=1)).T
+
 
     # Standardize the data
     scaler = StandardScaler()
