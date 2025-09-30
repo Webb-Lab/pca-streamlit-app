@@ -29,10 +29,10 @@ if uploaded_file:
 
     # Create a DataFrame for plotting
     plot_df = pd.DataFrame({
-        'PC1': pca_result[:, 0],
-        'PC2': pca_result[:, 1],
-        'Color': color_labels.values,
-        'Shape': shape_labels.values
+    'PC1': pca_result[:, 0],
+    'PC2': pca_result[:, 1],
+    'Color': color_labels.values,
+    'LegendLabel': shape_labels.values  # Use this for legend
     })
 
     # Map shapes to Plotly symbols
@@ -46,7 +46,7 @@ if uploaded_file:
         x='PC1',
         y='PC2',
         color='Color',
-        symbol='Symbol',
+        symbol='LegendLabel',
         symbol_sequence=list(symbol_map.values()),
         title='PCA Scatter Plot',
         labels={'PC1': 'Principal Component 1', 'PC2': 'Principal Component 2'},
