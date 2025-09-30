@@ -47,8 +47,8 @@ if uploaded_file:
         'PC2': pca_result[:, 1],
         'LegendLabel': repeated_labels
     # Add original numeric values as hover data
-    for col in data.columns:
-        plot_df[f'Original_{col}'] = data[col]
+        for col in data.columns:
+            plot_df[f'Original_{col}'] = data[col]
     })
 
 
