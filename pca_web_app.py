@@ -43,6 +43,8 @@ if uploaded_file:
     plot_df = pd.DataFrame({
         f'PC1 ({explained_variance[0]:.2f}%)': pca_result[:, 0],
         f'PC2 ({explained_variance[1]:.2f}%)': pca_result[:, 1],
+        'Label 1': label_row_1[:len(pca_result)].values,
+        'Label 2': label_row_2[:len(pca_result)].values,
         'LegendLabel': combined_labels[:len(pca_result)],
         'Cluster': clusters
     })
@@ -51,18 +53,19 @@ if uploaded_file:
     for i, col in enumerate(data.columns):
         plot_df[f'Feature_{i+1}'] = data[col]
 
-    # Plot with clusters
+    # Plot with clusters and shape legend for Label 2
     fig = px.scatter(
         plot_df,
         x=f'PC1 ({explained_variance[0]:.2f}%)',
         y=f'PC2 ({explained_variance[1]:.2f}%)',
         color=plot_df['Cluster'].astype(str),
+        symbol='Label 2',
         hover_data=['LegendLabel'] + [f'Feature_{i+1}' for i in range(data.shape[1])],
         title='PCA Scatter Plot with K-Means Clustering',
-        labels={'color': 'Cluster'}
+        labels={'color': 'Cluster', 'symbol': 'Label 2'}
     )
     fig.update_layout(
-        legend_title_text='Cluster',
+        legend_title_text='Cluster and Label 2',
         dragmode='pan',
         hovermode='closest'
     )
@@ -78,7 +81,6 @@ if uploaded_file:
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         plot_df.to_excel(writer, index=False, sheet_name='PCA + Clusters')
-        # Add explained variance as a separate sheet
         pd.DataFrame({
             'Principal Component': ['PC1', 'PC2'],
             'Explained Variance (%)': explained_variance
