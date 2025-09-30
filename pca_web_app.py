@@ -24,7 +24,7 @@ if uploaded_file:
 
     # Convert all values to numeric and fill missing values using row-wise mean
     raw_data = raw_data.apply(pd.to_numeric, errors='coerce')
-    filled_data = raw_data.fillna(data.T.mean(axis=1))
+    filled_data = raw_data.fillna(raw_data.T.mean(axis=1))
 
     data = filled_data.transpose()
 
