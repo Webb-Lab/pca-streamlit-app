@@ -65,3 +65,15 @@ if uploaded_file:
         fig.write_image("pca_plot.png")
         st.success("Plot saved as pca_plot.png")
 
+    # Provide download link for PCA plot data as Excel
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        plot_df.drop(columns='Symbol').to_excel(writer, index=False, sheet_name='PCA Plot Data')
+    st.download_button(
+        label="Download PCA Plot Data as Excel",
+        data=output.getvalue(),
+        file_name="pca_plot_data.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+
