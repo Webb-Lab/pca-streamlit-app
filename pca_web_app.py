@@ -23,10 +23,6 @@ if uploaded_file:
     # Extract numeric data starting from the third row
     data = df.iloc[2:].reset_index(drop=True)
 
-    # Convert to numeric and fill missing values with column mean
-    data = data.apply(pd.to_numeric, errors='coerce')
-    data.fillna(data.mean(), inplace=True)
-
     # Standardize the data
     scaler = StandardScaler()
     scaled_data = scaler.fit_transform(data)
