@@ -6,6 +6,8 @@ from sklearn.cluster import KMeans
 import plotly.express as px
 import io
 
+kaleido.get_chrome_sync()
+
 # Set up the Streamlit app
 st.title("Interactive PCA Visualization with K-Means Clustering")
 st.write("Upload an Excel file. The first two rows are used as labels. PCA is applied and K-Means clustering is performed.")
