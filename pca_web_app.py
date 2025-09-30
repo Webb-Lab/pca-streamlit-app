@@ -19,6 +19,15 @@ if uploaded_file:
     shape_labels = df.iloc[1]
     data = df.iloc[2:].reset_index(drop=True)
 
+    
+    # Convert all data to numeric, coercing errors (non-numeric entries become NaN)
+    data = data.apply(pd.to_numeric, errors='coerce')
+
+    
+    # Drop rows with NaN values (optional, depending on how you want to handle missing data)
+    data = data.dropna()
+
+
     # Standardize the data
     scaler = StandardScaler()
     scaled_data = scaler.fit_transform(data)
@@ -31,8 +40,8 @@ if uploaded_file:
     plot_df = pd.DataFrame({
         'PC1': pca_result[:, 0],
         'PC2': pca_result[:, 1],
-        'Color': color_labels.values,
-        'Shape': shape_labels.values
+        'Color': color_labels.values[:len(pca_result)],
+        'Shape': shape_labels.values[:len(pca_result)]
     })
 
     # Map shapes to Plotly symbols
