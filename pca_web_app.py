@@ -46,10 +46,11 @@ if uploaded_file:
         'PC1': pca_result[:, 0],
         'PC2': pca_result[:, 1],
         'LegendLabel': repeated_labels
+    # Add original numeric values as hover data
+    for col in data.columns:
+        plot_df[f'Original_{col}'] = data[col]
     })
-# Add original numeric values as hover data
-for col in data.columns:
-    plot_df[f'Original_{col}'] = data[col]
+
 
 # Create interactive PCA scatter plot
 fig = px.scatter(
