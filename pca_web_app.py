@@ -7,7 +7,7 @@ import io
 
 # Set up the app
 st.title("Interactive PCA Visualization Web App")
-st.write("Upload an Excel file where the first two rows are descriptive labels and the rest are numeric data.")
+st.write("Upload an Excel file where each pair of columns represents an array. The first two rows in each column are classifiers, and the remaining rows are numeric data.")
 
 uploaded_file = st.file_uploader("Choose an Excel file", type=["xlsx", "xls"])
 
@@ -15,17 +15,36 @@ if uploaded_file:
     # Read the Excel file without headers
     df = pd.read_excel(uploaded_file, header=None, engine='openpyxl')
 
-    # Extract descriptive labels from first two rows and combine them
-    label_row_1 = df.iloc[0].astype(str)
-    label_row_2 = df.iloc[1].astype(str)
-    combined_labels = label_row_1 + ", " + label_row_2
+    # Determine number of columns
+    num_cols = df.shape[1]
 
-    # Extract numeric data starting from the third row
-    data = df.iloc[2:].reset_index(drop=True)
+    # Prepare list to hold combined arrays and labels
+    combined_arrays = []
+    combined_labels = []
+
+    # Process columns in pairs
+    for i in range(0, num_cols, 2):
+        col1 = df.iloc[:, i]
+        col2 = df.iloc[:, i + 1]
+
+        # Create label from first two rows of each column
+        label1 = f"{col1.iloc[0]} + {col1.iloc[1]}"
+        label2 = f"{col2.iloc[0]} + {col2.iloc[1]}"
+        combined_label = f"{label1}, {label2}"
+        combined_labels.append(combined_label)
+
+        # Combine numeric data from both columns (excluding first two rows)
+        values1 = col1.iloc[2:].astype(float).values
+        values2 = col2.iloc[2:].astype(float).values
+        combined_array = list(values1) + list(values2)
+        combined_arrays.append(combined_array)
+
+    # Create DataFrame from combined arrays
+    data_df = pd.DataFrame(combined_arrays)
 
     # Standardize the data
     scaler = StandardScaler()
-    scaled_data = scaler.fit_transform(data)
+    scaled_data = scaler.fit_transform(data_df)
 
     # Perform PCA
     pca = PCA(n_components=2)
@@ -35,7 +54,7 @@ if uploaded_file:
     plot_df = pd.DataFrame({
         'PC1': pca_result[:, 0],
         'PC2': pca_result[:, 1],
-        'LegendLabel': combined_labels.values
+        'LegendLabel': combined_labels
     })
 
     # Create interactive plot
@@ -49,7 +68,7 @@ if uploaded_file:
     )
 
     fig.update_layout(
-        legend_title_text='Combined Labels (Row 1, Row 2)',
+        legend_title_text='Combined Labels (Classifier 1 + Classifier 2)',
         dragmode='pan',
         hovermode='closest',
     )
