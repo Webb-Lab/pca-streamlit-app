@@ -9,8 +9,7 @@ import io
 st.title("Interactive PCA Visualization Web App")
 st.write("This app visualizes PCA results from an Excel file. The first two rows are treated as descriptive labels and combined for legend entries.")
 
-# Load the uploaded Excel file
-excel_file = "example data-1.xlsx"
+# Read the Excel file without headers
 df = pd.read_excel(excel_file, header=None, engine='openpyxl')
 
 # Extract the first two rows as string labels and clean whitespace
