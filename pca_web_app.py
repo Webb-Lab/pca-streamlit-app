@@ -15,14 +15,13 @@ if uploaded_file:
     # Read the Excel file without headers
     df = pd.read_excel(uploaded_file, header=None, engine='openpyxl')
 
-
-    # Extract the first two rows as string labels and clean whitespace
-    label_row_1 = df.iloc[0].astype(str).str.strip()
-    label_row_2 = df.iloc[1].astype(str).str.strip()
+    # Extract labels from the first two rows (columns are samples)
+    label_row_1 = df.iloc[0].astype(str).str.strip()  # Peptide
+    label_row_2 = df.iloc[1].astype(str).str.strip()  # Experiment
     combined_labels = label_row_1 + ", " + label_row_2
 
-    # Extract numeric data from row 3 onward
-    data = df.iloc[2:].reset_index(drop=True)
+    # Extract numeric data from row 3 onward and transpose
+    data = df.iloc[2:].reset_index(drop=True).transpose()
 
     # Convert all values to numeric and fill missing values with column mean
     data = data.apply(pd.to_numeric, errors='coerce')
@@ -36,21 +35,16 @@ if uploaded_file:
     pca = PCA(n_components=2)
     pca_result = pca.fit_transform(scaled_data)
 
-    # Ensure the number of labels matches the number of PCA points
-    num_points = pca_result.shape[0]
-    num_labels = len(combined_labels)
-    repeated_labels = [combined_labels[i % num_labels] for i in range(num_points)]
-
     # Create a DataFrame for plotting with hover tooltips
     plot_df = pd.DataFrame({
         'PC1': pca_result[:, 0],
         'PC2': pca_result[:, 1],
-        'LegendLabel': repeated_labels})
-    # Add original numeric values as hover data
-    for col in data.columns:
-        plot_df[f'Original_{col}'] = data[col]
-    
+        'LegendLabel': combined_labels
+    })
 
+    # Add original numeric values as hover data
+    for i, col in enumerate(data.columns):
+        plot_df[f'Feature_{i+1}'] = data[col]
 
     # Create interactive PCA scatter plot
     fig = px.scatter(
@@ -58,13 +52,13 @@ if uploaded_file:
         x='PC1',
         y='PC2',
         color='LegendLabel',
-        hover_data=[f'Original_{col}' for col in data.columns],
+        hover_data=[f'Feature_{i+1}' for i in range(data.shape[1])],
         title='PCA Scatter Plot',
         labels={'PC1': 'Principal Component 1', 'PC2': 'Principal Component 2'}
     )
 
     fig.update_layout(
-        legend_title_text='Combined Labels (Row 1, Row 2)',
+        legend_title_text='Peptide, Experiment',
         dragmode='pan',
         hovermode='closest'
     )
