@@ -32,6 +32,7 @@ if uploaded_file:
     # PCA
     pca = PCA(n_components=2)
     pca_result = pca.fit_transform(scaled_data)
+    explained_variance = pca.explained_variance_ratio_ * 100  # Convert to percentage
 
     # K-Means clustering
     num_clusters = st.slider("Select number of clusters for K-Means", min_value=2, max_value=10, value=3)
@@ -40,8 +41,8 @@ if uploaded_file:
 
     # Create plot DataFrame
     plot_df = pd.DataFrame({
-        'PC1': pca_result[:, 0],
-        'PC2': pca_result[:, 1],
+        f'PC1 ({explained_variance[0]:.2f}%)': pca_result[:, 0],
+        f'PC2 ({explained_variance[1]:.2f}%)': pca_result[:, 1],
         'LegendLabel': combined_labels[:len(pca_result)],
         'Cluster': clusters
     })
@@ -53,12 +54,12 @@ if uploaded_file:
     # Plot with clusters
     fig = px.scatter(
         plot_df,
-        x='PC1',
-        y='PC2',
+        x=f'PC1 ({explained_variance[0]:.2f}%)',
+        y=f'PC2 ({explained_variance[1]:.2f}%)',
         color=plot_df['Cluster'].astype(str),
         hover_data=['LegendLabel'] + [f'Feature_{i+1}' for i in range(data.shape[1])],
         title='PCA Scatter Plot with K-Means Clustering',
-        labels={'PC1': 'Principal Component 1', 'PC2': 'Principal Component 2', 'color': 'Cluster'}
+        labels={'color': 'Cluster'}
     )
     fig.update_layout(
         legend_title_text='Cluster',
@@ -77,6 +78,11 @@ if uploaded_file:
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         plot_df.to_excel(writer, index=False, sheet_name='PCA + Clusters')
+        # Add explained variance as a separate sheet
+        pd.DataFrame({
+            'Principal Component': ['PC1', 'PC2'],
+            'Explained Variance (%)': explained_variance
+        }).to_excel(writer, index=False, sheet_name='Explained Variance')
     st.download_button(
         label="Download PCA + Cluster Data as Excel",
         data=output.getvalue(),
