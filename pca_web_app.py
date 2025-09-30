@@ -10,7 +10,6 @@ st.title("Interactive PCA Visualization Web App")
 st.write("This app visualizes PCA results from an Excel file. The first two rows are treated as descriptive labels and combined for legend entries.")
 
 uploaded_file = st.file_uploader("Choose an Excel file", type=["xlsx", "xls"])
-
 if uploaded_file:
     # Read the Excel file without headers
     df = pd.read_excel(uploaded_file, header=None, engine='openpyxl')
@@ -23,10 +22,9 @@ if uploaded_file:
     # Extract numeric data from row 3 onward and transpose
     data = df.iloc[2:].reset_index(drop=True).transpose()
 
-    # Convert all values to numeric and fill missing values with column mean
+    # Convert all values to numeric and fill missing values using row-wise mean
     data = data.apply(pd.to_numeric, errors='coerce')
     data = data.T.fillna(data.T.mean(axis=1)).T
-
 
     # Standardize the data
     scaler = StandardScaler()
@@ -40,7 +38,7 @@ if uploaded_file:
     plot_df = pd.DataFrame({
         'PC1': pca_result[:, 0],
         'PC2': pca_result[:, 1],
-        'LegendLabel': combined_labels
+        'LegendLabel': combined_labels[:len(pca_result)]  # Ensure alignment
     })
 
     # Add original numeric values as hover data
@@ -57,7 +55,6 @@ if uploaded_file:
         title='PCA Scatter Plot',
         labels={'PC1': 'Principal Component 1', 'PC2': 'Principal Component 2'}
     )
-
     fig.update_layout(
         legend_title_text='Peptide, Experiment',
         dragmode='pan',
