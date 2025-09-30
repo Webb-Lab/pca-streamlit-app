@@ -3,6 +3,7 @@ import pandas as pd
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 import plotly.express as px
+import io
 
 # Set up the app
 st.title("Interactive PCA Visualization Web App")
