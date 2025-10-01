@@ -11,8 +11,8 @@ from matplotlib.backends.backend_pdf import PdfPages
 import io
 
 # Set up the Streamlit app
-st.title("Transformed PCA Visualization with K-Means Clustering")
-st.write("Upload an Excel file with raw data. The app will transform the matrix and visualize PCA clusters.")
+st.title("Interactive PCA Visualization with K-Means Clustering")
+st.write("Upload an Excel file: first row is the name (e.g., compound name, peptide sequence), second row is the experiment (e.g., control vs treated), rest are dependent variables (e.g., intensity for each replicate).")
 
 uploaded_file = st.file_uploader("Choose an Excel file", type=["xlsx", "xls"])
 if uploaded_file:
