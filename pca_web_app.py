@@ -35,6 +35,19 @@ if uploaded_file:
     pca = PCA(n_components=num_pca_components)
     pca_result = pca.fit_transform(scaled_data)
     explained_variance = pca.explained_variance_ratio_ * 100  # Convert to percentage
+    cumulative_variance = explained_variance.cumsum()
+
+    # Scree plot of explained variance
+    st.subheader("Scree Plot of Explained Variance")
+    fig_scree, ax_scree = plt.subplots()
+    ax_scree.plot(range(1, num_pca_components + 1), explained_variance, marker='o', linestyle='-', label='Individual')
+    ax_scree.plot(range(1, num_pca_components + 1), cumulative_variance, marker='s', linestyle='--', label='Cumulative')
+    ax_scree.set_xlabel("Principal Component")
+    ax_scree.set_ylabel("Explained Variance (%)")
+    ax_scree.set_title("Scree Plot")
+    ax_scree.legend()
+    ax_scree.grid(True)
+    st.pyplot(fig_scree)
 
     # Determine max clusters based on sample size
     max_possible_clusters = min(10, len(data))
@@ -83,17 +96,16 @@ if uploaded_file:
     plot_df = pd.DataFrame({
         f'PC1 ({explained_variance[0]:.2f}%)': pca_result[:, 0],
         f'PC2 ({explained_variance[1]:.2f}%)': pca_result[:, 1],
-        'Feature': data.index,  # Previously 'Replicate'
+        'Feature': data.index,
         'Cluster': clusters
     })
 
-    # Add original replicates for hover (previously features)
+    # Add original replicates for hover
     for i, col in enumerate(data.columns):
         plot_df[f'Replicate_{i+1}'] = data[col].values
 
-    
-# Plot with clusters (2D)
-    fig = px.scatter(
+    # Plot with clusters (2D)
+    fig_2d = px.scatter(
         plot_df,
         x=f'PC1 ({explained_variance[0]:.2f}%)',
         y=f'PC2 ({explained_variance[1]:.2f}%)',
@@ -102,14 +114,15 @@ if uploaded_file:
         title='PCA Scatter Plot with K-Means Clustering (2D)',
         labels={'color': 'Cluster'}
     )
-    fig.update_layout(
+    fig_2d.update_layout(
         legend_title_text='Cluster',
         dragmode='pan',
         hovermode='closest'
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig_2d, use_container_width=True)
 
     # Optional 3D PCA plot if 3 components are selected
+    fig_3d = None
     if num_pca_components >= 3:
         plot_df[f'PC3 ({explained_variance[2]:.2f}%)'] = pca_result[:, 2]
         fig_3d = px.scatter_3d(
@@ -132,38 +145,50 @@ if uploaded_file:
         )
         st.plotly_chart(fig_3d, use_container_width=True)
 
-
-    # Save plot as PDF
-    if st.button("Save Plot as PDF"):
+    # Save all plots as a single PDF
+    if st.button("Download All Plots as PDF"):
         pdf_buffer = io.BytesIO()
         with PdfPages(pdf_buffer) as pdf:
-            plt.figure(figsize=(8, 6))
+            for fig in [fig_scree, fig_elbow, fig_silhouette]:
+                pdf.savefig(fig)
+
+            # Save 2D PCA plot
+            fig_pca_2d, ax_pca_2d = plt.subplots()
             cluster_ids = sorted(plot_df['Cluster'].unique())
             cmap = plt.get_cmap('tab10')
             cluster_color_map = {cluster: cmap(i % 10) for i, cluster in enumerate(cluster_ids)}
-
             for cluster in cluster_ids:
                 subset = plot_df[plot_df['Cluster'] == cluster]
-                plt.scatter(
+                ax_pca_2d.scatter(
                     subset[f'PC1 ({explained_variance[0]:.2f}%)'],
                     subset[f'PC2 ({explained_variance[1]:.2f}%)'],
                     label=f'Cluster {cluster}',
                     alpha=0.7,
                     color=cluster_color_map[cluster]
                 )
+            ax_pca_2d.set_xlabel(f'PC1 ({explained_variance[0]:.2f}%)')
+            ax_pca_2d.set_ylabel(f'PC2 ({explained_variance[1]:.2f}%)')
+            ax_pca_2d.set_title('PCA Scatter Plot with K-Means Clustering (2D)')
+            ax_pca_2d.legend(title='Cluster', fontsize='small', loc='best')
+            ax_pca_2d.grid(True)
+            pdf.savefig(fig_pca_2d)
+            plt.close(fig_pca_2d)
 
-            plt.xlabel(f'PC1 ({explained_variance[0]:.2f}%)')
-            plt.ylabel(f'PC2 ({explained_variance[1]:.2f}%)')
-            plt.title('PCA Scatter Plot with K-Means Clustering')
-            plt.legend(title='Cluster', fontsize='small', loc='best')
-            plt.grid(True)
-            pdf.savefig()
-            plt.close()
+            # Save 3D PCA plot as image if available
+            if fig_3d:
+                fig_3d.write_image("temp_3d_plot.png")
+                img = plt.imread("temp_3d_plot.png")
+                fig_pca_3d, ax_pca_3d = plt.subplots()
+                ax_pca_3d.imshow(img)
+                ax_pca_3d.axis('off')
+                ax_pca_3d.set_title('PCA Scatter Plot with K-Means Clustering (3D)')
+                pdf.savefig(fig_pca_3d)
+                plt.close(fig_pca_3d)
 
         st.download_button(
-            label="Download PCA Plot as PDF",
+            label="Download All Plots as PDF",
             data=pdf_buffer.getvalue(),
-            file_name="pca_kmeans_plot.pdf",
+            file_name="all_pca_plots.pdf",
             mime="application/pdf"
         )
 
@@ -173,7 +198,8 @@ if uploaded_file:
         plot_df.to_excel(writer, index=False, sheet_name='PCA + Clusters')
         pd.DataFrame({
             'Principal Component': [f'PC{i+1}' for i in range(num_pca_components)],
-            'Explained Variance (%)': explained_variance
+            'Explained Variance (%)': explained_variance,
+            'Cumulative Variance (%)': cumulative_variance
         }).to_excel(writer, index=False, sheet_name='Explained Variance')
     st.download_button(
         label="Download PCA + Cluster Data as Excel",
