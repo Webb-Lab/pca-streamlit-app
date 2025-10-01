@@ -91,14 +91,15 @@ if uploaded_file:
     for i, col in enumerate(data.columns):
         plot_df[f'Replicate_{i+1}'] = data[col].values
 
-    # Plot with clusters
+    
+# Plot with clusters (2D)
     fig = px.scatter(
         plot_df,
         x=f'PC1 ({explained_variance[0]:.2f}%)',
         y=f'PC2 ({explained_variance[1]:.2f}%)',
         color=plot_df['Cluster'].astype(str),
         hover_data=['Feature'] + [f'Replicate_{i+1}' for i in range(data.shape[1])],
-        title='PCA Scatter Plot with K-Means Clustering',
+        title='PCA Scatter Plot with K-Means Clustering (2D)',
         labels={'color': 'Cluster'}
     )
     fig.update_layout(
@@ -106,8 +107,31 @@ if uploaded_file:
         dragmode='pan',
         hovermode='closest'
     )
-
     st.plotly_chart(fig, use_container_width=True)
+
+    # Optional 3D PCA plot if 3 components are selected
+    if num_pca_components >= 3:
+        plot_df[f'PC3 ({explained_variance[2]:.2f}%)'] = pca_result[:, 2]
+        fig_3d = px.scatter_3d(
+            plot_df,
+            x=f'PC1 ({explained_variance[0]:.2f}%)',
+            y=f'PC2 ({explained_variance[1]:.2f}%)',
+            z=f'PC3 ({explained_variance[2]:.2f}%)',
+            color=plot_df['Cluster'].astype(str),
+            hover_data=['Feature'] + [f'Replicate_{i+1}' for i in range(data.shape[1])],
+            title='PCA Scatter Plot with K-Means Clustering (3D)',
+            labels={'color': 'Cluster'}
+        )
+        fig_3d.update_layout(
+            legend_title_text='Cluster',
+            scene=dict(
+                xaxis_title=f'PC1 ({explained_variance[0]:.2f}%)',
+                yaxis_title=f'PC2 ({explained_variance[1]:.2f}%)',
+                zaxis_title=f'PC3 ({explained_variance[2]:.2f}%)'
+            )
+        )
+        st.plotly_chart(fig_3d, use_container_width=True)
+
 
     # Save plot as PDF
     if st.button("Save Plot as PDF"):
