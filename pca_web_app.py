@@ -179,7 +179,7 @@ if uploaded_file:
             # Save the 3D plot as an HTML file and take a screenshot using selenium or skip it
                html_path = "temp_3d_plot.html"
                with open(html_path, "w") as f:
-               f.write(fig_3d.to_html(full_html=False, include_plotlyjs='cdn'))
+                   f.write(fig_3d.to_html(full_html=False, include_plotlyjs='cdn'))
 
                # Instead of screenshotting, just add a placeholder page in the PDF
                fig_pca_3d, ax_pca_3d = plt.subplots()
