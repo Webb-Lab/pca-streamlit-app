@@ -11,7 +11,7 @@ import io
 
 # Set up the Streamlit app
 st.title("Interactive PCA Visualization with K-Means Clustering")
-st.write("Upload an Excel file: rows are experimental replicates, columns are features.")
+st.write("Upload an Excel file: rows are experimental replicates/samples, columns are features (compound, peptide etc). The script expects the feature names in row 1 and the replicate names in column A of the Excel spreadsheet. This script does not include missing value imputation.")
 
 uploaded_file = st.file_uploader("Choose an Excel file", type=["xlsx", "xls"])
 if uploaded_file:
@@ -79,17 +79,17 @@ if uploaded_file:
     kmeans = KMeans(n_clusters=num_clusters, random_state=42)
     clusters = kmeans.fit_predict(pca_result)
 
-    # Create plot DataFrame
+    # Create plot DataFrame with swapped labels
     plot_df = pd.DataFrame({
         f'PC1 ({explained_variance[0]:.2f}%)': pca_result[:, 0],
         f'PC2 ({explained_variance[1]:.2f}%)': pca_result[:, 1],
-        'Replicate': data.index,
+        'Feature': data.index,  # Previously 'Replicate'
         'Cluster': clusters
     })
 
-    # Add original features for hover
+    # Add original replicates for hover (previously features)
     for i, col in enumerate(data.columns):
-        plot_df[f'Feature_{i+1}'] = data[col].values
+        plot_df[f'Replicate_{i+1}'] = data[col].values
 
     # Plot with clusters
     fig = px.scatter(
@@ -97,7 +97,7 @@ if uploaded_file:
         x=f'PC1 ({explained_variance[0]:.2f}%)',
         y=f'PC2 ({explained_variance[1]:.2f}%)',
         color=plot_df['Cluster'].astype(str),
-        hover_data=['Replicate'] + [f'Feature_{i+1}' for i in range(data.shape[1])],
+        hover_data=['Feature'] + [f'Replicate_{i+1}' for i in range(data.shape[1])],
         title='PCA Scatter Plot with K-Means Clustering',
         labels={'color': 'Cluster'}
     )
