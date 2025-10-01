@@ -10,7 +10,7 @@ import io
 
 # Set up the Streamlit app
 st.title("Interactive PCA Visualization with K-Means Clustering")
-st.write("Upload an Excel file. The first two rows are used as labels. PCA is applied and K-Means clustering is performed.")
+st.write("Upload an excel file, first row is the name (e.g., compound name, peptide sequence, etc), second row is the experiment (e.g., control vs treated, etc.) rest of rows are dependent variables (e.g., intensity for each replicate).")
 
 uploaded_file = st.file_uploader("Choose an Excel file", type=["xlsx", "xls"])
 if uploaded_file:
