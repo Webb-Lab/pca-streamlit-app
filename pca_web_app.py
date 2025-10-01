@@ -36,10 +36,13 @@ if uploaded_file:
     pca_result = pca.fit_transform(scaled_data)
     explained_variance = pca.explained_variance_ratio_ * 100  # Convert to percentage
 
+    # Determine max clusters based on sample size
+    max_possible_clusters = min(10, len(data))
+
     # Elbow method to help choose clusters
     st.subheader("Elbow Method to Help Choose Optimal Number of Clusters")
     inertia_values = []
-    cluster_range = range(1, 11)
+    cluster_range = range(1, max_possible_clusters + 1)
     for k in cluster_range:
         kmeans = KMeans(n_clusters=k, random_state=42)
         kmeans.fit(pca_result)
@@ -54,9 +57,9 @@ if uploaded_file:
     st.pyplot(fig_elbow)
 
     # Silhouette score visualization
-    st.subheader("Silhouette Score for Cluster Counts (2 to 10)")
+    st.subheader("Silhouette Score for Cluster Counts (2 to max)")
     silhouette_scores = []
-    silhouette_range = range(2, 11)
+    silhouette_range = range(2, max_possible_clusters + 1)
     for k in silhouette_range:
         kmeans = KMeans(n_clusters=k, random_state=42)
         labels = kmeans.fit_predict(pca_result)
@@ -72,7 +75,7 @@ if uploaded_file:
     st.pyplot(fig_silhouette)
 
     # K-Means clustering
-    num_clusters = st.slider("Select number of clusters for K-Means", min_value=2, max_value=10, value=3)
+    num_clusters = st.slider("Select number of clusters for K-Means", min_value=2, max_value=max_possible_clusters, value=min(3, max_possible_clusters))
     kmeans = KMeans(n_clusters=num_clusters, random_state=42)
     clusters = kmeans.fit_predict(pca_result)
 
@@ -153,4 +156,3 @@ if uploaded_file:
         data=output.getvalue(),
         file_name="pca_cluster_data.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
