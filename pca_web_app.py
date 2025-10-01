@@ -176,14 +176,27 @@ if uploaded_file:
 
             # Save 3D PCA plot as image if available
             if fig_3d:
-                fig_3d.write_image("temp_3d_plot.png")
-                img = plt.imread("temp_3d_plot.png")
-                fig_pca_3d, ax_pca_3d = plt.subplots()
-                ax_pca_3d.imshow(img)
-                ax_pca_3d.axis('off')
-                ax_pca_3d.set_title('PCA Scatter Plot with K-Means Clustering (3D)')
-                pdf.savefig(fig_pca_3d)
-                plt.close(fig_pca_3d)
+            # Save the 3D plot as an HTML file and take a screenshot using selenium or skip it
+               html_path = "temp_3d_plot.html"
+               with open(html_path, "w") as f:
+               f.write(fig_3d.to_html(full_html=False, include_plotlyjs='cdn'))
+
+               # Instead of screenshotting, just add a placeholder page in the PDF
+               fig_pca_3d, ax_pca_3d = plt.subplots()
+               ax_pca_3d.text(0.5, 0.5, "3D PCA plot saved separately as HTML", ha='center', va='center', fontsize=12)
+               ax_pca_3d.axis('off')
+               pdf.savefig(fig_pca_3d)
+               plt.close(fig_pca_3d)
+
+               # Optionally offer the HTML download
+               with open(html_path, "rb") as f:
+                   st.download_button(
+                       label="Download 3D PCA Plot (HTML)",
+                       data=f.read(),
+                       file_name="pca_3d_plot.html",
+                       mime="text/html"
+                   )
+
 
         st.download_button(
             label="Download All Plots as PDF",
