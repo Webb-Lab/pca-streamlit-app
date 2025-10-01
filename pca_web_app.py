@@ -112,16 +112,22 @@ if uploaded_file:
 
     st.plotly_chart(fig, use_container_width=True)
 
-    # Save plot as PDF using matplotlib with shape markers for Experiment
+    # Save plot as PDF using matplotlib with consistent cluster colors and experiment shapes
     if st.button("Save Plot as PDF"):
         pdf_buffer = io.BytesIO()
         with PdfPages(pdf_buffer) as pdf:
             plt.figure(figsize=(8, 6))
-            marker_styles = ['o', 's', '^', 'D', 'v', '>', '<', 'p', '*', 'h']  # Extend if needed
+
+            # Define marker styles and colors
+            marker_styles = ['o', 's', '^', 'D', 'v', '>', '<', 'p', '*', 'h']
             experiments = plot_df['Experiment'].unique()
             experiment_marker_map = {exp: marker_styles[i % len(marker_styles)] for i, exp in enumerate(experiments)}
 
-            for cluster in sorted(plot_df['Cluster'].unique()):
+            cluster_ids = sorted(plot_df['Cluster'].unique())
+            cmap = plt.get_cmap('tab10')
+            cluster_color_map = {cluster: cmap(i % 10) for i, cluster in enumerate(cluster_ids)}
+
+            for cluster in cluster_ids:
                 for exp in experiments:
                     subset = plot_df[(plot_df['Cluster'] == cluster) & (plot_df['Experiment'] == exp)]
                     plt.scatter(
@@ -129,7 +135,8 @@ if uploaded_file:
                         subset[f'PC2 ({explained_variance[1]:.2f}%)'],
                         label=f'Cluster {cluster}, {exp}',
                         alpha=0.7,
-                        marker=experiment_marker_map[exp]
+                        marker=experiment_marker_map[exp],
+                        color=cluster_color_map[cluster]
                     )
 
             plt.xlabel(f'PC1 ({explained_variance[0]:.2f}%)')
