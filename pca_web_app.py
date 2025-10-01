@@ -57,9 +57,9 @@ if uploaded_file:
     st.pyplot(fig_elbow)
 
     # Silhouette score visualization
-    st.subheader("Silhouette Score for Cluster Counts (2 to max)")
+    st.subheader("Silhouette Score for Cluster Counts")
     silhouette_scores = []
-    silhouette_range = range(2, max_possible_clusters + 1)
+    silhouette_range = range(2, min(max_possible_clusters, len(data) - 1) + 1)
     for k in silhouette_range:
         kmeans = KMeans(n_clusters=k, random_state=42)
         labels = kmeans.fit_predict(pca_result)
@@ -155,4 +155,5 @@ if uploaded_file:
         label="Download PCA + Cluster Data as Excel",
         data=output.getvalue(),
         file_name="pca_cluster_data.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
