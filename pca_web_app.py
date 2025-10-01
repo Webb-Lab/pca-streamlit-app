@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
@@ -10,49 +9,38 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 import io
 
-st.title("PCA Visualization from before.xlsx")
-st.write("Upload an Excel file with peptide labels in row 0, sample types in row 1, and intensity data in rows 2–4.")
+# Set up the Streamlit app
+st.title("PCA Visualization with K-Means Clustering (No Imputation)")
+st.write("Upload an Excel file: first row contains feature names, first column contains replicate identifiers, remaining cells are numeric values.")
 
 uploaded_file = st.file_uploader("Choose an Excel file", type=["xlsx", "xls"])
 if uploaded_file:
-    df = pd.read_excel(uploaded_file, header=None, engine='openpyxl')
+    # Load the Excel file with first row as header and first column as index
+    df = pd.read_excel(uploaded_file, header=0, index_col=0, engine='openpyxl')
 
-    # Extract metadata and data
-    peptide_labels = df.iloc[0].tolist()
-    sample_types = df.iloc[1].tolist()
-    replicate_data = df.iloc[2:5].reset_index(drop=True).transpose()
+    # Display the raw data
+    st.subheader("Raw Data Preview")
+    st.dataframe(df)
 
-    # Generate sample names
-    replicate_counts = {}
-    sample_names = []
-    for sample_type in sample_types:
-        replicate_counts[sample_type] = replicate_counts.get(sample_type, 0) + 1
-        sample_names.append(f"{sample_type}{replicate_counts[sample_type]}")
+    # Drop columns with all missing values
+    df = df.dropna(axis=1, how='all')
 
-    replicate_data.index = sample_names
-    replicate_data.columns = [f"Peptide_{i+1}" for i in range(replicate_data.shape[1])]
-    replicate_data = replicate_data.apply(pd.to_numeric, errors='coerce')
+    # Transpose the data for PCA (features as columns)
+    data = df.copy()
 
-    # Impute missing values
-    for sample_type in set(sample_types):
-        indices = [i for i, name in enumerate(sample_names) if name.startswith(sample_type)]
-        subset = replicate_data.iloc[indices]
-        mean_vals = subset.mean(axis=0)
-        replicate_data.iloc[indices] = subset.fillna(mean_vals)
-    replicate_data = replicate_data.fillna(0)
-
-    st.subheader("Transformed Intensity Matrix")
-    st.dataframe(replicate_data)
-
-    # Standardize and PCA
+    # Standardize the data (ignoring NaNs)
     scaler = StandardScaler()
-    scaled_data = scaler.fit_transform(replicate_data)
-    pca = PCA(n_components=2)
-    pca_result = pca.fit_transform(scaled_data)
-    explained_variance = pca.explained_variance_ratio_ * 100
+    scaled_data = scaler.fit_transform(data)
 
-    # Elbow method
-    st.subheader("Elbow Method for Optimal Clusters")
+    # PCA component slider
+    max_components = min(data.shape[1], 10)
+    num_pca_components = st.slider("Select number of PCA components", min_value=2, max_value=max_components, value=2)
+    pca = PCA(n_components=num_pca_components)
+    pca_result = pca.fit_transform(scaled_data)
+    explained_variance = pca.explained_variance_ratio_ * 100  # Convert to percentage
+
+    # Elbow method to help choose clusters
+    st.subheader("Elbow Method to Help Choose Optimal Number of Clusters")
     inertia_values = []
     cluster_range = range(1, 11)
     for k in cluster_range:
@@ -64,12 +52,12 @@ if uploaded_file:
     ax.plot(cluster_range, inertia_values, marker='o')
     ax.set_xlabel("Number of Clusters")
     ax.set_ylabel("Inertia")
-    ax.set_title("Elbow Method")
+    ax.set_title("Elbow Method for Optimal Clusters")
     ax.grid(True)
     st.pyplot(fig_elbow)
 
-    # Silhouette scores
-    st.subheader("Silhouette Scores for Cluster Counts")
+    # Silhouette score visualization
+    st.subheader("Silhouette Score for Cluster Counts (2 to 10)")
     silhouette_scores = []
     silhouette_range = range(2, 11)
     for k in silhouette_range:
@@ -82,51 +70,68 @@ if uploaded_file:
     ax2.plot(silhouette_range, silhouette_scores, marker='o', color='green')
     ax2.set_xlabel("Number of Clusters")
     ax2.set_ylabel("Silhouette Score")
-    ax2.set_title("Silhouette Score vs Cluster Count")
+    ax2.set_title("Silhouette Score vs Number of Clusters")
     ax2.grid(True)
     st.pyplot(fig_silhouette)
 
-    # Final clustering
-    num_clusters = st.slider("Select number of clusters", min_value=2, max_value=10, value=3)
+    # K-Means clustering
+    num_clusters = st.slider("Select number of clusters for K-Means", min_value=2, max_value=10, value=3)
     kmeans = KMeans(n_clusters=num_clusters, random_state=42)
     clusters = kmeans.fit_predict(pca_result)
 
+    # Create plot DataFrame
     plot_df = pd.DataFrame({
         f'PC1 ({explained_variance[0]:.2f}%)': pca_result[:, 0],
         f'PC2 ({explained_variance[1]:.2f}%)': pca_result[:, 1],
-        'Sample': replicate_data.index,
-        'Cluster': clusters,
-        'Experiment': [name[:-1] for name in replicate_data.index]
+        'Replicate': data.index,
+        'Cluster': clusters
     })
 
+    # Add original features for hover
+    for i, col in enumerate(data.columns):
+        plot_df[f'Feature_{i+1}'] = data[col].values
+
+    # Plot with clusters
     fig = px.scatter(
         plot_df,
         x=f'PC1 ({explained_variance[0]:.2f}%)',
         y=f'PC2 ({explained_variance[1]:.2f}%)',
         color=plot_df['Cluster'].astype(str),
-        symbol='Experiment',
-        hover_data=['Sample'],
-        title='PCA Scatter Plot with K-Means Clustering'
+        hover_data=['Replicate'] + [f'Feature_{i+1}' for i in range(data.shape[1])],
+        title='PCA Scatter Plot with K-Means Clustering',
+        labels={'color': 'Cluster'}
     )
-    fig.update_layout(legend_title_text='Cluster and Experiment')
+    fig.update_layout(
+        legend_title_text='Cluster',
+        dragmode='pan',
+        hovermode='closest'
+    )
+
     st.plotly_chart(fig, use_container_width=True)
 
-    # PDF download
-    if st.button("Download PCA Plot as PDF"):
+    # Save plot as PDF
+    if st.button("Save Plot as PDF"):
         pdf_buffer = io.BytesIO()
         with PdfPages(pdf_buffer) as pdf:
             plt.figure(figsize=(8, 6))
+            cluster_ids = sorted(plot_df['Cluster'].unique())
             cmap = plt.get_cmap('tab10')
-            cluster_colors = {c: cmap(i % 10) for i, c in enumerate(sorted(plot_df['Cluster'].unique()))}
-            for cluster in sorted(plot_df['Cluster'].unique()):
+            cluster_color_map = {cluster: cmap(i % 10) for i, cluster in enumerate(cluster_ids)}
+
+            for cluster in cluster_ids:
                 subset = plot_df[plot_df['Cluster'] == cluster]
-                plt.scatter(subset.iloc[:, 0], subset.iloc[:, 1], label=f'Cluster {cluster}', color=cluster_colors[cluster])
-            for i, name in enumerate(plot_df['Sample']):
-                plt.annotate(name, (pca_result[i, 0], pca_result[i, 1]))
+                plt.scatter(
+                    subset[f'PC1 ({explained_variance[0]:.2f}%)'],
+                    subset[f'PC2 ({explained_variance[1]:.2f}%)'],
+                    label=f'Cluster {cluster}',
+                    alpha=0.7,
+                    color=cluster_color_map[cluster]
+                )
+
             plt.xlabel(f'PC1 ({explained_variance[0]:.2f}%)')
             plt.ylabel(f'PC2 ({explained_variance[1]:.2f}%)')
-            plt.title('PCA Plot with KMeans Clustering')
-            plt.legend()
+            plt.title('PCA Scatter Plot with K-Means Clustering')
+            plt.legend(title='Cluster', fontsize='small', loc='best')
             plt.grid(True)
             pdf.savefig()
             plt.close()
@@ -138,18 +143,17 @@ if uploaded_file:
             mime="application/pdf"
         )
 
-    # Excel export
+    # Download PCA + Cluster data
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        replicate_data.to_excel(writer, sheet_name='Transformed Matrix')
         plot_df.to_excel(writer, index=False, sheet_name='PCA + Clusters')
         pd.DataFrame({
-            'Principal Component': [f'PC{i+1}' for i in range(2)],
+            'Principal Component': [f'PC{i+1}' for i in range(num_pca_components)],
             'Explained Variance (%)': explained_variance
         }).to_excel(writer, index=False, sheet_name='Explained Variance')
     st.download_button(
-        label="Download Transformed Data as Excel",
+        label="Download PCA + Cluster Data as Excel",
         data=output.getvalue(),
-        file_name="transformed_pca_data.xlsx",
+        file_name="pca_cluster_data.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
