@@ -155,4 +155,4 @@ if uploaded_file:
         label="Download PCA + Cluster Data as Excel",
         data=output.getvalue(),
         file_name="pca_cluster_data.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
