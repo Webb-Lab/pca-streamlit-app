@@ -35,11 +35,6 @@ if uploaded_file:
     pca = PCA(n_components=num_pca_components)
     pca_result = pca.fit_transform(scaled_data)
     explained_variance = pca.explained_variance_ratio_ * 100  # Convert to percentage
-
-    # PCA Loadings
-    loadings = pd.DataFrame(pca.components_.T, index=data.columns, columns=[f'PC{i+1}' for i in range(num_pca_components)])
-    st.subheader("PCA Loading Matrix")
-    st.dataframe(loadings)
     cumulative_variance = explained_variance.cumsum()
 
     # Scree plot of explained variance
@@ -215,7 +210,6 @@ if uploaded_file:
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         plot_df.to_excel(writer, index=False, sheet_name='PCA + Clusters')
         pd.DataFrame({
-    loadings.to_excel(writer, sheet_name='PCA Loadings')
             'Principal Component': [f'PC{i+1}' for i in range(num_pca_components)],
             'Explained Variance (%)': explained_variance,
             'Cumulative Variance (%)': cumulative_variance
