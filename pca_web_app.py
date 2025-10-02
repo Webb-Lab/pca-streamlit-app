@@ -36,10 +36,10 @@ if uploaded_file:
     pca_result = pca.fit_transform(scaled_data)
     explained_variance = pca.explained_variance_ratio_ * 100  # Convert to percentage
 
-# PCA Loadings
-loadings = pd.DataFrame(pca.components_.T, index=data.columns, columns=[f'PC{i+1}' for i in range(num_pca_components)])
-st.subheader("PCA Loading Matrix")
-st.dataframe(loadings)
+    # PCA Loadings
+    loadings = pd.DataFrame(pca.components_.T, index=data.columns, columns=[f'PC{i+1}' for i in range(num_pca_components)])
+    st.subheader("PCA Loading Matrix")
+    st.dataframe(loadings)
     cumulative_variance = explained_variance.cumsum()
 
     # Scree plot of explained variance
