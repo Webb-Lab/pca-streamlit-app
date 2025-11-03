@@ -111,7 +111,7 @@ if uploaded_file:
         labels={'color': 'Cluster'}
     )
     fig_2d.update_layout(legend_title_text='Cluster', dragmode='pan', hovermode='closest')
-    st.plotly_chart(fig_2d, use_container_width=True)
+    st.plotly_chart(fig_2d, width='stretch')
 
     fig_3d = None
     if num_pca_components >= 3:
@@ -134,7 +134,7 @@ if uploaded_file:
                 zaxis_title=f'PC3 ({explained_variance[2]:.2f}%)'
             )
         )
-        st.plotly_chart(fig_3d, use_container_width=True)
+        st.plotly_chart(fig_3d, width='stretch')
 
     # Excel export
     output = io.BytesIO()
