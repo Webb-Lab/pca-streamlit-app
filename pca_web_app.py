@@ -110,7 +110,27 @@ if uploaded_file:
     # PCA plot (white background)
     st.subheader("PCA Plot")
     fig = px.scatter(scores, x='PC1', y='PC2', color='Cluster_Label')
-    fig.update_layout(plot_bgcolor="white", paper_bgcolor="white",font=dict(color="black"))
+    fig.update_layout(
+        plot_bgcolor="white",
+        paper_bgcolor="white",
+    
+        font=dict(color="black"),
+    
+        xaxis=dict(
+            title_font=dict(color="black"),
+            tickfont=dict(color="black"),
+            color="black"
+        ),
+        yaxis=dict(
+            title_font=dict(color="black"),
+            tickfont=dict(color="black"),
+            color="black"
+        ),
+    
+        legend=dict(
+            font=dict(color="black")
+        )
+    )
     st.plotly_chart(fig)
 
     # -----------------------------
@@ -161,9 +181,23 @@ if uploaded_file:
     fig.update_layout(
         plot_bgcolor="white",
         paper_bgcolor="white",
-        xaxis_title="log2FC",
-        yaxis_title="-log10(p-value)",
-        font=dict(color="black")
+
+        font=dict(color="black"),
+    
+        xaxis=dict(
+            title_font=dict(color="black"),
+            tickfont=dict(color="black"),
+            color="black"
+        ),
+        yaxis=dict(
+            title_font=dict(color="black"),
+            tickfont=dict(color="black"),
+            color="black"
+        ),
+    
+        legend=dict(
+            font=dict(color="black")
+        )
     )
 
     fig.add_vline(x=fc_thresh)
