@@ -180,16 +180,35 @@ if uploaded_file:
 
     fc_thresh = st.slider("log2FC threshold", 0.0, 5.0, 1.0)
     q_thresh = st.slider("FDR threshold", 0.0001, 0.2, 0.05)
+    # Compute threshold
+    y_thresh = -np.log10(q_thresh)
+    
+    # Create plotting color column
+    def volcano_color(row):
+        if row["-log10p"] < y_thresh:
+            return "lightgray"
+        return row["Cluster"]
+    
+    diff["VolcanoColor"] = diff.apply(volcano_color, axis=1)
 
+    # Define explicit colors
+    cluster_colors = dict(zip(
+        diff["Cluster"].unique(),
+        px.colors.qualitative.Dark24
+    ))
+    
+    cluster_colors["lightgray"] = "lightgray"
+    
     fig = px.scatter(
         diff,
         x="log2FC",
         y="-log10p",
-        color="Cluster",
+        color="VolcanoColor",
         hover_data=["Crosslink"],
         opacity=1.0,
-        color_discrete_sequence=px.colors.qualitative.Dark24
+        color_discrete_map=cluster_colors
     )
+    fig.update_traces(showlegend=False)
 
     # --- OPTIONAL: threshold lines ---
     fig.add_vline(x=fc_thresh, line_color="black", line_dash="dash")
