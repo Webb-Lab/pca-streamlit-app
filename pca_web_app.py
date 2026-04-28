@@ -55,9 +55,36 @@ if uploaded_file:
 
     # Scree
     st.subheader("Scree Plot")
+
+    # Compute cumulative variance
+    cumulative_var = explained_var.cumsum()
+    
     fig, ax = plt.subplots(facecolor="white")
     ax.set_facecolor("white")
-    ax.plot(range(1, n_pc+1), explained_var, marker='o')
+    
+    # Individual variance
+    ax.plot(
+        range(1, n_pc+1),
+        explained_var,
+        marker='o',
+        label="Individual"
+    )
+    
+    # Cumulative variance
+    ax.plot(
+        range(1, n_pc+1),
+        cumulative_var,
+        marker='s',
+        linestyle='--',
+        label="Cumulative"
+    )
+    
+    ax.set_xlabel("Principal Component", color="black")
+    ax.set_ylabel("Explained Variance (%)", color="black")
+    
+    ax.tick_params(colors='black')
+    ax.legend()
+    
     st.pyplot(fig)
 
     # Loadings
