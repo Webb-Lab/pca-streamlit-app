@@ -119,6 +119,9 @@ if uploaded_file:
         xaxis=dict(
             showgrid=False,
             zeroline=False,
+            showline=True,
+            linecolor="black",
+            linewidth=1.5,
             title_font=dict(color="black"),
             tickfont=dict(color="black"),
             color="black"
@@ -126,6 +129,9 @@ if uploaded_file:
         yaxis=dict(
             showgrid=False,
             zeroline=False,
+            showline=True,
+            linecolor="black",
+            linewidth=1.5,
             title_font=dict(color="black"),
             tickfont=dict(color="black"),
             color="black"
@@ -198,12 +204,20 @@ if uploaded_file:
     
         xaxis=dict(
             showgrid=False,
+            zeroline=False,
+            showline=True,
+            linecolor="black",
+            linewidth=1.5,
             title_font=dict(color="black"),
             tickfont=dict(color="black"),
             color="black"
         ),
         yaxis=dict(
             showgrid=False,
+            zeroline=False,
+            showline=True,
+            linecolor="black",
+            linewidth=1.5,
             title_font=dict(color="black"),
             tickfont=dict(color="black"),
             color="black"
