@@ -28,7 +28,7 @@ def benjamini_hochberg(pvals):
 # -----------------------------
 st.title("PCA + Clustering + Volcano + Export")
 
-uploaded_file = st.file_uploader("Upload Excel file", type=["xlsx", "xls"], key="file")
+uploaded_file = st.file_uploader("Upload Excel file", type=["xlsx", "xls"])
 
 if uploaded_file:
 
@@ -46,22 +46,19 @@ if uploaded_file:
     # -----------------------------
     # PCA
     # -----------------------------
-    max_pc = min(10, data.shape[1])
-    n_pc = st.slider("PCA components", 2, max_pc, 2, key="pc")
+    n_pc = st.slider("PCA components", 2, min(10, data.shape[1]), 2)
 
     pca = PCA(n_components=n_pc)
     pca_res = pca.fit_transform(scaled)
 
     explained_var = pca.explained_variance_ratio_ * 100
-    cumulative_var = explained_var.cumsum()
 
-    # Scree plot
+    # Scree
     st.subheader("Scree Plot")
-    fig_scree, ax = plt.subplots()
-    ax.plot(range(1, n_pc+1), explained_var, marker='o', label="Individual")
-    ax.plot(range(1, n_pc+1), cumulative_var, marker='s', linestyle='--', label="Cumulative")
-    ax.legend(); ax.grid(True)
-    st.pyplot(fig_scree)
+    fig, ax = plt.subplots(facecolor="white")
+    ax.set_facecolor("white")
+    ax.plot(range(1, n_pc+1), explained_var, marker='o')
+    st.pyplot(fig)
 
     # Loadings
     loadings = pd.DataFrame(
@@ -82,47 +79,42 @@ if uploaded_file:
         km.fit(pca_res)
         inertia.append(km.inertia_)
 
-    fig_elbow, ax = plt.subplots()
+    fig, ax = plt.subplots(facecolor="white")
+    ax.set_facecolor("white")
     ax.plot(range(1, max_k+1), inertia, marker='o')
-    ax.grid(True)
-    st.pyplot(fig_elbow)
+    st.pyplot(fig)
 
     st.subheader("Silhouette Plot")
     sil_scores = []
     for k in range(2, max_k):
         km = KMeans(n_clusters=k, random_state=42)
-        labels = km.fit_predict(pca_res)
-        sil_scores.append(silhouette_score(pca_res, labels))
+        sil_scores.append(silhouette_score(pca_res, km.fit_predict(pca_res)))
 
-    fig_sil, ax = plt.subplots()
+    fig, ax = plt.subplots(facecolor="white")
+    ax.set_facecolor("white")
     ax.plot(range(2, max_k), sil_scores, marker='o')
-    ax.grid(True)
-    st.pyplot(fig_sil)
+    st.pyplot(fig)
 
-    k = st.slider("Number of clusters", 2, max_k, min(3, max_k), key="cluster")
+    k = st.slider("Clusters", 2, max_k, 3)
 
     km = KMeans(n_clusters=k, random_state=42)
     clusters = km.fit_predict(pca_res)
 
-    scores = pd.DataFrame(
-        pca_res,
-        index=data.index,
-        columns=[f'PC{i+1}' for i in range(n_pc)]
-    )
+    scores = pd.DataFrame(pca_res, index=data.index, columns=[f'PC{i+1}' for i in range(n_pc)])
     scores['Cluster'] = clusters
 
-    # Auto label
     centroids = scores.groupby('Cluster').mean().sort_values(by='PC1')
     mapping = {old: f'Cluster_{i+1}' for i, old in enumerate(centroids.index)}
     scores['Cluster_Label'] = scores['Cluster'].map(mapping)
 
-    # PCA plot
+    # PCA plot (white background)
     st.subheader("PCA Plot")
     fig = px.scatter(scores, x='PC1', y='PC2', color='Cluster_Label')
-    st.plotly_chart(fig, use_container_width=True)
+    fig.update_layout(plot_bgcolor="white", paper_bgcolor="white")
+    st.plotly_chart(fig)
 
     # -----------------------------
-    # Differential analysis
+    # Differential
     # -----------------------------
     eps = 1e-6
     rows = []
@@ -139,11 +131,10 @@ if uploaded_file:
             if len(v1) > 0 and len(v2) > 0:
                 _, p = ttest_ind(v1, v2, equal_var=False)
                 fc = np.log2((v1.mean()+eps)/(v2.mean()+eps))
-                rows.append([cl, col, fc, p])
+                rows.append([cl, col, fc, p, v1.mean(), v2.mean()])
 
-    diff = pd.DataFrame(rows, columns=["Cluster","Crosslink","log2FC","p"])
+    diff = pd.DataFrame(rows, columns=["Cluster","Crosslink","log2FC","p","mean_cluster","mean_other"])
 
-    # FDR
     diff['q'] = np.nan
     for cl in diff['Cluster'].unique():
         mask = diff['Cluster']==cl
@@ -152,51 +143,56 @@ if uploaded_file:
     diff['-log10p'] = -np.log10(diff['p'])
 
     # -----------------------------
-    # Cluster summaries
-    # -----------------------------
-    data_with_clusters = data.copy()
-    data_with_clusters['Cluster'] = scores['Cluster_Label']
-
-    cluster_means = data_with_clusters.groupby('Cluster').mean()
-    global_mean = data.mean()
-    fold_change = cluster_means / global_mean
-
-    top_enriched = {}
-    for c in fold_change.index:
-        top_enriched[c] = fold_change.loc[c].sort_values(ascending=False).head(10)
-    top_enriched_df = pd.DataFrame(top_enriched)
-
-    # -----------------------------
-    # Volcano plot
+    # Volcano plot (NO CAPPING)
     # -----------------------------
     st.subheader("Volcano Plot")
 
     fc_thresh = st.slider("log2FC threshold", 0.0, 5.0, 1.0)
     q_thresh = st.slider("FDR threshold", 0.0001, 0.2, 0.05)
-    y_cap = st.slider("Y-axis max (-log10 p)", 5, 20, 10)
-
-    x_cap = 10
-
-    plot_df = diff.copy()
-    plot_df['x'] = np.clip(plot_df['log2FC'], -x_cap, x_cap)
-    plot_df['y'] = np.clip(plot_df['-log10p'], 0, y_cap)
 
     fig = px.scatter(
-        plot_df,
-        x='x',
-        y='y',
-        color='Cluster',
-        hover_data=['Crosslink']
+        diff,
+        x="log2FC",
+        y="-log10p",
+        color="Cluster",
+        hover_data=["Crosslink"]
+    )
+
+    fig.update_layout(
+        plot_bgcolor="white",
+        paper_bgcolor="white",
+        xaxis_title="log2FC",
+        yaxis_title="-log10(p-value)"
     )
 
     fig.add_vline(x=fc_thresh)
     fig.add_vline(x=-fc_thresh)
     fig.add_hline(y=-np.log10(q_thresh))
 
-    fig.update_xaxes(range=[-x_cap-1, x_cap+1])
-    fig.update_yaxes(range=[0, y_cap+1])
+    st.plotly_chart(fig)
 
-    st.plotly_chart(fig, use_container_width=True)
+    # -----------------------------
+    # ON/OFF CROSS-LINK TABLES
+    # -----------------------------
+    st.subheader("Crosslinks Unique to Clusters")
+
+    unique_tables = {}
+
+    for cl in scores['Cluster_Label'].unique():
+        mask = scores['Cluster_Label'] == cl
+        g1 = data[mask]
+        g2 = data[~mask]
+
+        only_in_cluster = []
+
+        for col in data.columns:
+            if g1[col].mean() > 0 and g2[col].mean() == 0:
+                only_in_cluster.append(col)
+
+        unique_tables[cl] = pd.DataFrame({"Crosslink": only_in_cluster})
+
+        st.write(f"Only in {cl}")
+        st.dataframe(unique_tables[cl])
 
     # -----------------------------
     # Excel export
@@ -205,8 +201,7 @@ if uploaded_file:
 
     variance_df = pd.DataFrame({
         'PC': [f'PC{i+1}' for i in range(n_pc)],
-        'Explained Variance (%)': explained_var,
-        'Cumulative (%)': cumulative_var
+        'Explained Variance (%)': explained_var
     })
 
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
@@ -214,14 +209,14 @@ if uploaded_file:
         loadings.to_excel(writer, sheet_name="Loadings")
         variance_df.to_excel(writer, sheet_name="Variance")
         diff.to_excel(writer, sheet_name="Differential")
-        cluster_means.to_excel(writer, sheet_name="Cluster Means")
-        fold_change.to_excel(writer, sheet_name="Fold Change")
-        top_enriched_df.to_excel(writer, sheet_name="Top Enriched")
-        df.to_excel(writer, sheet_name="Original Data")
+        df.to_excel(writer, sheet_name="Original")
+
+        for cl, tbl in unique_tables.items():
+            tbl.to_excel(writer, sheet_name=f"Only_{cl}")
 
     st.download_button(
-        "Download Full Excel Output",
+        "Download Excel",
         data=output.getvalue(),
-        file_name="pca_analysis_full.xlsx",
+        file_name="final_analysis.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
