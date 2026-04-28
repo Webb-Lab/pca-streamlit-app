@@ -173,33 +173,69 @@ if uploaded_file:
 
     diff['-log10p'] = -np.log10(diff['p'])
 
-    # -----------------------------
+   # -----------------------------
     # Volcano plot (NO CAPPING)
     # -----------------------------
     st.subheader("Volcano Plot")
-
+    
     fc_thresh = st.slider("log2FC threshold", 0.0, 5.0, 1.0)
     q_thresh = st.slider("FDR threshold", 0.0001, 0.2, 0.05)
-
-    fig = px.scatter(
-        diff,
-        x="log2FC",
-        y="-log10p",
-        color="Cluster",
-        hover_data=["Crosslink"],
-        opacity=1.0,
-        color_discrete_sequence=px.colors.qualitative.Dark24
+    
+    import plotly.graph_objects as go
+    
+    # --- Define significance ---
+    sig_mask = (
+        (abs(diff["log2FC"]) > fc_thresh) &
+        (diff["q"] < q_thresh)
     )
-
-    # --- OPTIONAL: threshold lines ---
+    
+    sig_df = diff[sig_mask]
+    nonsig_df = diff[~sig_mask]
+    
+    fig = go.Figure()
+    
+    # --- Non-significant (faded gray) ---
+    fig.add_trace(go.Scatter(
+        x=nonsig_df["log2FC"],
+        y=nonsig_df["-log10p"],
+        mode="markers",
+        marker=dict(
+            color="lightgray",
+            size=7,
+            opacity=0.25
+        ),
+        name="Not significant",
+        hoverinfo="skip"
+    ))
+    
+    # --- Significant (colored, bold) ---
+    cluster_codes = sig_df["Cluster"].astype('category').cat.codes
+    
+    fig.add_trace(go.Scatter(
+        x=sig_df["log2FC"],
+        y=sig_df["-log10p"],
+        mode="markers",
+        marker=dict(
+            color=cluster_codes,
+            colorscale="Dark24",
+            size=8,
+            opacity=1.0,
+            line=dict(width=0.5, color="black")
+        ),
+        text=sig_df["Crosslink"],
+        name="Significant"
+    ))
+    
+    # --- Threshold lines ---
     fig.add_vline(x=fc_thresh, line_color="black", line_dash="dash")
     fig.add_vline(x=-fc_thresh, line_color="black", line_dash="dash")
     fig.add_hline(y=-np.log10(q_thresh), line_color="black", line_dash="dash")
-
+    
+    # --- Layout (your styling preserved) ---
     fig.update_layout(
         plot_bgcolor="white",
         paper_bgcolor="white",
-
+    
         font=dict(color="black"),
     
         xaxis=dict(
@@ -210,7 +246,8 @@ if uploaded_file:
             linewidth=1.5,
             title_font=dict(color="black"),
             tickfont=dict(color="black"),
-            color="black"
+            color="black",
+            title="log2FC"
         ),
         yaxis=dict(
             showgrid=False,
@@ -220,7 +257,8 @@ if uploaded_file:
             linewidth=1.5,
             title_font=dict(color="black"),
             tickfont=dict(color="black"),
-            color="black"
+            color="black",
+            title="-log10(p-value)"
         ),
     
         legend=dict(
@@ -228,9 +266,7 @@ if uploaded_file:
             title_font=dict(color="black")
         )
     )
-
     
-
     st.plotly_chart(fig)
 
     # -----------------------------
