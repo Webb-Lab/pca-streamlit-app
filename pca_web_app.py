@@ -206,13 +206,15 @@ if uploaded_file:
     st.subheader("Volcano Plot")
 
     fc_thresh = st.slider("log2FC threshold", 0.0, 5.0, 1.0)
-    q_thresh = st.slider("FDR threshold", 0.0001, 0.2, 0.05)
+    q_thresh_percent = st.slider("FDR threshold (%)", 0.01, 20.0, 5.0)
+    q_thresh = q_thresh_percent / 100.0
     # Compute threshold
     y_thresh = -np.log10(q_thresh)
     
     # Create plotting color column
     def volcano_color(row):
-        if row["-log10p"] < y_thresh:
+        # Below horizontal cutoff OR inside vertical thresholds
+        if (row["-log10p"] < y_thresh) or (abs(row["log2FC"]) < fc_thresh):
             return "lightgray"
         return row["Cluster"]
     
