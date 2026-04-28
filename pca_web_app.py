@@ -20,7 +20,7 @@ if uploaded_file:
     st.subheader("Raw Data Preview")
     st.dataframe(df)
 
-    data = df.copy()
+    data = df.T.copy()
     scaler = StandardScaler()
     scaled_data = scaler.fit_transform(data)
 
