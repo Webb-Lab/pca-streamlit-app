@@ -200,7 +200,7 @@ if uploaded_file:
             color="black"
         ),
         yaxis=dict(
-            showgrid=False
+            showgrid=False,
             title_font=dict(color="black"),
             tickfont=dict(color="black"),
             color="black"
