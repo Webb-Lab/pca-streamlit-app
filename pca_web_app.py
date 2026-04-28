@@ -9,6 +9,7 @@ import plotly.express as px
 import matplotlib.pyplot as plt
 import io
 from scipy.stats import ttest_ind
+import plotly.express as px
 
 # -----------------------------
 # FDR correction
@@ -209,22 +210,25 @@ if uploaded_file:
     ))
     
     # --- Significant (colored, bold) ---
-    cluster_codes = sig_df["Cluster"].astype('category').cat.codes
+    # Use a proper discrete color palette
+    colors = px.colors.qualitative.Dark24
     
-    fig.add_trace(go.Scatter(
-        x=sig_df["log2FC"],
-        y=sig_df["-log10p"],
-        mode="markers",
-        marker=dict(
-            color=cluster_codes,
-            colorscale="Dark24",
-            size=8,
-            opacity=1.0,
-            line=dict(width=0.5, color="black")
-        ),
-        text=sig_df["Crosslink"],
-        name="Significant"
-    ))
+    for i, cluster in enumerate(sig_df["Cluster"].unique()):
+        sub = sig_df[sig_df["Cluster"] == cluster]
+    
+        fig.add_trace(go.Scatter(
+            x=sub["log2FC"],
+            y=sub["-log10p"],
+            mode="markers",
+            marker=dict(
+                color=colors[i % len(colors)],
+                size=8,
+                opacity=1.0,
+                line=dict(width=0.5, color="black")
+            ),
+            text=sub["Crosslink"],
+            name=str(cluster)
+        ))
     
     # --- Threshold lines ---
     fig.add_vline(x=fc_thresh, line_color="black", line_dash="dash")
