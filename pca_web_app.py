@@ -109,7 +109,7 @@ if uploaded_file:
 
     # PCA plot (white background)
     st.subheader("PCA Plot")
-    fig = px.scatter(scores, x='PC1', y='PC2', color='Cluster_Label')
+    fig = px.scatter(scores, x='PC1', y='PC2', color='Cluster_Label', opacity=1.0, color_discrete_sequence=px.colors.qualitative.Dark24)
     fig.update_layout(
         plot_bgcolor="white",
         paper_bgcolor="white",
@@ -180,12 +180,15 @@ if uploaded_file:
         x="log2FC",
         y="-log10p",
         color="Cluster",
-        hover_data=["Crosslink"]
+        hover_data=["Crosslink"],
+        opacity=1.0,
+        color_discrete_sequence=px.colors.qualitative.Dark24
     )
 
-    fig.add_vline(x=fc_thresh)
-    fig.add_vline(x=-fc_thresh)
-    fig.add_hline(y=-np.log10(q_thresh))
+    # --- OPTIONAL: threshold lines ---
+    fig.add_vline(x=fc_thresh, line_color="black", line_dash="dash")
+    fig.add_vline(x=-fc_thresh, line_color="black", line_dash="dash")
+    fig.add_hline(y=-np.log10(q_thresh), line_color="black", line_dash="dash")
 
     fig.update_layout(
         plot_bgcolor="white",
