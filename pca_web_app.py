@@ -137,19 +137,64 @@ if uploaded_file:
         st.plotly_chart(fig_3d, width='stretch')
 
     # Excel export
-    output = io.BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        plot_df.to_excel(writer, index=False, sheet_name='PCA + Clusters')
-        pd.DataFrame({
-            'Principal Component': [f'PC{i+1}' for i in range(num_pca_components)],
-            'Explained Variance (%)': explained_variance,
-            'Cumulative Variance (%)': cumulative_variance
-        }).to_excel(writer, index=False, sheet_name='Explained Variance')
-        loadings.to_excel(writer, sheet_name='PCA Loadings')
+    # Excel export (enhanced + original matrix)
+output = io.BytesIO()
 
-    st.download_button(
-        label="Download PCA + Cluster Data as Excel",
-        data=output.getvalue(),
-        file_name="pca_cluster_data.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+# --- SCORES (samples) ---
+scores_df = pd.DataFrame(
+    pca_result,
+    index=data.index,
+    columns=[f'PC{i+1}' for i in range(num_pca_components)]
+)
+scores_df['Cluster'] = clusters
+
+# --- LOADINGS (crosslinks) ---
+loadings_df = pd.DataFrame(
+    pca.components_.T,
+    index=data.columns,
+    columns=[f'PC{i+1}' for i in range(num_pca_components)]
+)
+
+# --- EXPLAINED VARIANCE ---
+variance_df = pd.DataFrame({
+    'Principal Component': [f'PC{i+1}' for i in range(num_pca_components)],
+    'Explained Variance (%)': explained_variance,
+    'Cumulative Variance (%)': cumulative_variance
+})
+
+# --- TOP POSITIVE / NEGATIVE CONTRIBUTORS ---
+top_n = 10  # adjustable
+
+top_pos = {}
+top_neg = {}
+
+for i in range(num_pca_components):
+    pc_name = f'PC{i+1}'
+    
+    # Sort descending for positive
+    top_pos[pc_name] = loadings_df[pc_name].sort_values(ascending=False).head(top_n)
+    
+    # Sort ascending for negative
+    top_neg[pc_name] = loadings_df[pc_name].sort_values(ascending=True).head(top_n)
+
+top_pos_df = pd.concat(top_pos, axis=1)
+top_neg_df = pd.concat(top_neg, axis=1)
+
+# --- ORIGINAL MATRIX (exactly as uploaded) ---
+original_df = df.copy()  # BEFORE transpose
+
+# --- WRITE TO EXCEL ---
+with pd.ExcelWriter(output, engine='openpyxl') as writer:
+    scores_df.to_excel(writer, sheet_name='Scores')
+    loadings_df.to_excel(writer, sheet_name='Loadings')
+    variance_df.to_excel(writer, sheet_name='Explained Variance')
+    top_pos_df.to_excel(writer, sheet_name='Top Positive Contributors')
+    top_neg_df.to_excel(writer, sheet_name='Top Negative Contributors')
+    original_df.to_excel(writer, sheet_name='Original Data')
+
+st.download_button(
+    label="Download PCA Results (Enhanced Excel)",
+    data=output.getvalue(),
+    file_name="pca_results_enhanced.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
