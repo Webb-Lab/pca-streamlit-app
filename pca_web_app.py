@@ -9,192 +9,161 @@ import plotly.express as px
 import matplotlib.pyplot as plt
 import seaborn as sns
 import io
+from scipy.stats import ttest_ind
 
-# Set up the Streamlit app
+# -----------------------------
+# App setup
+# -----------------------------
 st.title("Interactive PCA Visualization with K-Means Clustering")
-st.write("Upload an Excel file: rows are experimental replicates/samples, columns are features (compound, peptide etc). The script expects the feature names in row 1 and the replicate names in column A of the Excel spreadsheet. This script does not include missing value imputation.")
+st.write("Upload an Excel file: rows = crosslinks, columns = replicates. Column A should contain crosslink IDs.")
 
 uploaded_file = st.file_uploader("Choose an Excel file", type=["xlsx", "xls"])
+
 if uploaded_file:
     df = pd.read_excel(uploaded_file, header=0, index_col=0, engine='openpyxl')
     st.subheader("Raw Data Preview")
     st.dataframe(df)
 
-    data = df.T.copy()
+    # -----------------------------
+    # Data prep (transpose)
+    # -----------------------------
+    data = df.T.copy()  # rows = samples, columns = crosslinks
+
     scaler = StandardScaler()
     scaled_data = scaler.fit_transform(data)
 
+    # -----------------------------
+    # PCA
+    # -----------------------------
     max_components = min(data.shape[1], 10)
-    num_pca_components = st.slider("Select number of PCA components", min_value=2, max_value=max_components, value=2)
+    num_pca_components = st.slider("Select number of PCA components", 2, max_components, 2)
+
     pca = PCA(n_components=num_pca_components)
     pca_result = pca.fit_transform(scaled_data)
+
     explained_variance = pca.explained_variance_ratio_ * 100
     cumulative_variance = explained_variance.cumsum()
 
+    # -----------------------------
     # Scree plot
-    st.subheader("Scree Plot of Explained Variance")
-    fig_scree, ax_scree = plt.subplots()
-    ax_scree.plot(range(1, num_pca_components + 1), explained_variance, marker='o', linestyle='-', label='Individual')
-    ax_scree.plot(range(1, num_pca_components + 1), cumulative_variance, marker='s', linestyle='--', label='Cumulative')
-    ax_scree.set_xlabel("Principal Component")
-    ax_scree.set_ylabel("Explained Variance (%)")
-    ax_scree.set_title("Scree Plot")
-    ax_scree.legend()
-    ax_scree.grid(True)
+    # -----------------------------
+    st.subheader("Scree Plot")
+    fig_scree, ax = plt.subplots()
+    ax.plot(range(1, num_pca_components + 1), explained_variance, marker='o', label='Individual')
+    ax.plot(range(1, num_pca_components + 1), cumulative_variance, marker='s', linestyle='--', label='Cumulative')
+    ax.legend(); ax.grid()
     st.pyplot(fig_scree)
 
-    # PCA Loadings
-    st.subheader("PCA Loading Matrix")
-    loadings = pd.DataFrame(pca.components_.T, index=data.columns, columns=[f'PC{i+1}' for i in range(num_pca_components)])
+    # -----------------------------
+    # Loadings
+    # -----------------------------
+    loadings = pd.DataFrame(
+        pca.components_.T,
+        index=data.columns,
+        columns=[f'PC{i+1}' for i in range(num_pca_components)]
+    )
+
+    st.subheader("Loadings")
     st.dataframe(loadings)
 
-    # PCA Loadings Heatmap
-    st.subheader("PCA Loadings Heatmap")
-    fig_loadings, ax_loadings = plt.subplots(figsize=(10, min(0.5 * len(data.columns), 12)))
-    sns.heatmap(loadings, annot=True, cmap='coolwarm', ax=ax_loadings)
-    ax_loadings.set_title("PCA Loadings Heatmap")
-    st.pyplot(fig_loadings)
-
+    # -----------------------------
     # Clustering
-    max_possible_clusters = min(10, len(data))
-    st.subheader("Elbow Method to Help Choose Optimal Number of Clusters")
-    inertia_values = []
-    cluster_range = range(1, max_possible_clusters + 1)
-    for k in cluster_range:
-        kmeans = KMeans(n_clusters=k, random_state=42)
-        kmeans.fit(pca_result)
-        inertia_values.append(kmeans.inertia_)
-    fig_elbow, ax = plt.subplots()
-    ax.plot(cluster_range, inertia_values, marker='o')
-    ax.set_xlabel("Number of Clusters")
-    ax.set_ylabel("Inertia")
-    ax.set_title("Elbow Method for Optimal Clusters")
-    ax.grid(True)
-    st.pyplot(fig_elbow)
+    # -----------------------------
+    max_clusters = min(10, len(data))
+    num_clusters = st.slider("Number of clusters", 2, max_clusters, min(3, max_clusters))
 
-    st.subheader("Silhouette Score for Cluster Counts")
-    silhouette_scores = []
-    silhouette_range = range(2, min(max_possible_clusters, len(data) - 1) + 1)
-    for k in silhouette_range:
-        kmeans = KMeans(n_clusters=k, random_state=42)
-        labels = kmeans.fit_predict(pca_result)
-        score = silhouette_score(pca_result, labels)
-        silhouette_scores.append(score)
-    fig_silhouette, ax2 = plt.subplots()
-    ax2.plot(silhouette_range, silhouette_scores, marker='o', color='green')
-    ax2.set_xlabel("Number of Clusters")
-    ax2.set_ylabel("Silhouette Score")
-    ax2.set_title("Silhouette Score vs Number of Clusters")
-    ax2.grid(True)
-    st.pyplot(fig_silhouette)
-
-    num_clusters = st.slider("Select number of clusters for K-Means", min_value=2, max_value=max_possible_clusters, value=min(3, max_possible_clusters))
     kmeans = KMeans(n_clusters=num_clusters, random_state=42)
     clusters = kmeans.fit_predict(pca_result)
 
-    plot_df = pd.DataFrame({
-        f'PC1 ({explained_variance[0]:.2f}%)': pca_result[:, 0],
-        f'PC2 ({explained_variance[1]:.2f}%)': pca_result[:, 1],
-        'Feature': data.index,
-        'Cluster': clusters
-    })
-    for i, col in enumerate(data.columns):
-        plot_df[f'Replicate_{i+1}'] = data[col].values
+    # -----------------------------
+    # Auto-label clusters (ordered)
+    # -----------------------------
+    scores_df = pd.DataFrame(pca_result, index=data.index, columns=[f'PC{i+1}' for i in range(num_pca_components)])
+    scores_df['Cluster'] = clusters
 
-    fig_2d = px.scatter(
+    centroids = scores_df.groupby('Cluster').mean()
+    centroids_sorted = centroids.sort_values(by='PC1')
+
+    cluster_map = {old: f'Cluster_{i+1}' for i, old in enumerate(centroids_sorted.index)}
+    scores_df['Cluster_Label'] = scores_df['Cluster'].map(cluster_map)
+
+    # -----------------------------
+    # PCA plot
+    # -----------------------------
+    plot_df = scores_df.copy()
+
+    fig = px.scatter(
         plot_df,
-        x=f'PC1 ({explained_variance[0]:.2f}%)',
-        y=f'PC2 ({explained_variance[1]:.2f}%)',
-        color=plot_df['Cluster'].astype(str),
-        hover_data=['Feature'] + [f'Replicate_{i+1}' for i in range(data.shape[1])],
-        title='PCA Scatter Plot with K-Means Clustering (2D)',
-        labels={'color': 'Cluster'}
+        x='PC1',
+        y='PC2',
+        color='Cluster_Label',
+        hover_name=plot_df.index,
+        title='PCA Plot'
     )
-    fig_2d.update_layout(legend_title_text='Cluster', dragmode='pan', hovermode='closest')
-    st.plotly_chart(fig_2d, width='stretch')
+    st.plotly_chart(fig, width='stretch')
 
-    fig_3d = None
-    if num_pca_components >= 3:
-        plot_df[f'PC3 ({explained_variance[2]:.2f}%)'] = pca_result[:, 2]
-        fig_3d = px.scatter_3d(
-            plot_df,
-            x=f'PC1 ({explained_variance[0]:.2f}%)',
-            y=f'PC2 ({explained_variance[1]:.2f}%)',
-            z=f'PC3 ({explained_variance[2]:.2f}%)',
-            color=plot_df['Cluster'].astype(str),
-            hover_data=['Feature'] + [f'Replicate_{i+1}' for i in range(data.shape[1])],
-            title='PCA Scatter Plot with K-Means Clustering (3D)',
-            labels={'color': 'Cluster'}
-        )
-        fig_3d.update_layout(
-            legend_title_text='Cluster',
-            scene=dict(
-                xaxis_title=f'PC1 ({explained_variance[0]:.2f}%)',
-                yaxis_title=f'PC2 ({explained_variance[1]:.2f}%)',
-                zaxis_title=f'PC3 ({explained_variance[2]:.2f}%)'
-            )
-        )
-        st.plotly_chart(fig_3d, width='stretch')
+    # -----------------------------
+    # Crosslink summaries
+    # -----------------------------
+    data_with_clusters = data.copy()
+    data_with_clusters['Cluster'] = scores_df['Cluster_Label']
 
+    cluster_means = data_with_clusters.groupby('Cluster').mean()
+    global_mean = data.mean()
+    fold_change = cluster_means / global_mean
+
+    # Top enriched
+    top_enriched = {}
+    for c in fold_change.index:
+        top_enriched[c] = fold_change.loc[c].sort_values(ascending=False).head(10)
+    top_enriched_df = pd.DataFrame(top_enriched)
+
+    # -----------------------------
+    # Differential analysis
+    # -----------------------------
+    diff_results = []
+
+    for cluster in scores_df['Cluster_Label'].unique():
+        mask = scores_df['Cluster_Label'] == cluster
+        group1 = data[mask]
+        group2 = data[~mask]
+
+        for col in data.columns:
+            vals1 = group1[col].dropna()
+            vals2 = group2[col].dropna()
+
+            if len(vals1) > 1 and len(vals2) > 1:
+                stat, pval = ttest_ind(vals1, vals2, equal_var=False)
+                log2fc = np.log2(vals1.mean() / vals2.mean()) if vals2.mean() != 0 else np.nan
+
+                diff_results.append([cluster, col, log2fc, pval])
+
+    diff_df = pd.DataFrame(diff_results, columns=['Cluster', 'Crosslink', 'log2FC', 'p-value'])
+
+    # -----------------------------
     # Excel export
-    # Excel export (enhanced + original matrix)
-output = io.BytesIO()
+    # -----------------------------
+    output = io.BytesIO()
 
-# --- SCORES (samples) ---
-scores_df = pd.DataFrame(
-    pca_result,
-    index=data.index,
-    columns=[f'PC{i+1}' for i in range(num_pca_components)]
-)
-scores_df['Cluster'] = clusters
+    variance_df = pd.DataFrame({
+        'PC': [f'PC{i+1}' for i in range(num_pca_components)],
+        'Explained Variance (%)': explained_variance,
+        'Cumulative (%)': cumulative_variance
+    })
 
-# --- LOADINGS (crosslinks) ---
-loadings_df = pd.DataFrame(
-    pca.components_.T,
-    index=data.columns,
-    columns=[f'PC{i+1}' for i in range(num_pca_components)]
-)
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        scores_df.to_excel(writer, sheet_name='Scores')
+        loadings.to_excel(writer, sheet_name='Loadings')
+        variance_df.to_excel(writer, sheet_name='Variance')
+        cluster_means.to_excel(writer, sheet_name='Cluster Means')
+        fold_change.to_excel(writer, sheet_name='Fold Change')
+        top_enriched_df.to_excel(writer, sheet_name='Top Enriched')
+        diff_df.to_excel(writer, sheet_name='Differential')
+        df.to_excel(writer, sheet_name='Original Data')
 
-# --- EXPLAINED VARIANCE ---
-variance_df = pd.DataFrame({
-    'Principal Component': [f'PC{i+1}' for i in range(num_pca_components)],
-    'Explained Variance (%)': explained_variance,
-    'Cumulative Variance (%)': cumulative_variance
-})
-
-# --- TOP POSITIVE / NEGATIVE CONTRIBUTORS ---
-top_n = 10  # adjustable
-
-top_pos = {}
-top_neg = {}
-
-for i in range(num_pca_components):
-    pc_name = f'PC{i+1}'
-    
-    # Sort descending for positive
-    top_pos[pc_name] = loadings_df[pc_name].sort_values(ascending=False).head(top_n)
-    
-    # Sort ascending for negative
-    top_neg[pc_name] = loadings_df[pc_name].sort_values(ascending=True).head(top_n)
-
-top_pos_df = pd.concat(top_pos, axis=1)
-top_neg_df = pd.concat(top_neg, axis=1)
-
-# --- ORIGINAL MATRIX (exactly as uploaded) ---
-original_df = df.copy()  # BEFORE transpose
-
-# --- WRITE TO EXCEL ---
-with pd.ExcelWriter(output, engine='openpyxl') as writer:
-    scores_df.to_excel(writer, sheet_name='Scores')
-    loadings_df.to_excel(writer, sheet_name='Loadings')
-    variance_df.to_excel(writer, sheet_name='Explained Variance')
-    top_pos_df.to_excel(writer, sheet_name='Top Positive Contributors')
-    top_neg_df.to_excel(writer, sheet_name='Top Negative Contributors')
-    original_df.to_excel(writer, sheet_name='Original Data')
-
-st.download_button(
-    label="Download PCA Results (Enhanced Excel)",
-    data=output.getvalue(),
-    file_name="pca_results_enhanced.xlsx",
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-)
+    st.download_button(
+        label="Download Full Analysis Excel",
+        data=output.getvalue(),
+        file_name="pca_analysis.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
