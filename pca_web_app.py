@@ -207,7 +207,7 @@ if uploaded_file:
         ),
     
         legend=dict(
-            font=dict(color="black")
+            font=dict(color="black"),
             title_font=dict(color="black")
         )
     )
