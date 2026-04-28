@@ -9,6 +9,7 @@ import plotly.express as px
 import matplotlib.pyplot as plt
 import io
 from scipy.stats import ttest_ind
+import plotly.express as px
 
 # -----------------------------
 # FDR correction
@@ -52,17 +53,12 @@ if uploaded_file:
     pca_res = pca.fit_transform(scaled)
 
     explained_var = pca.explained_variance_ratio_ * 100
-    cumulative_var = explained_var.cumsum()
 
-    # Scree plot
+    # Scree
     st.subheader("Scree Plot")
-    fig, ax = plt.subplots()
-    fig.patch.set_facecolor("white")
+    fig, ax = plt.subplots(facecolor="white")
     ax.set_facecolor("white")
-    ax.plot(range(1, n_pc+1), explained_var, marker='o', label="Individual")
-    ax.plot(range(1, n_pc+1), cumulative_var, linestyle='--', label="Cumulative")
-    ax.legend()
-    ax.tick_params(colors='black')
+    ax.plot(range(1, n_pc+1), explained_var, marker='o')
     st.pyplot(fig)
 
     # Loadings
@@ -84,11 +80,9 @@ if uploaded_file:
         km.fit(pca_res)
         inertia.append(km.inertia_)
 
-    fig, ax = plt.subplots()
-    fig.patch.set_facecolor("white")
+    fig, ax = plt.subplots(facecolor="white")
     ax.set_facecolor("white")
     ax.plot(range(1, max_k+1), inertia, marker='o')
-    ax.tick_params(colors='black')
     st.pyplot(fig)
 
     st.subheader("Silhouette Plot")
@@ -97,45 +91,62 @@ if uploaded_file:
         km = KMeans(n_clusters=k, random_state=42)
         sil_scores.append(silhouette_score(pca_res, km.fit_predict(pca_res)))
 
-    fig, ax = plt.subplots()
-    fig.patch.set_facecolor("white")
+    fig, ax = plt.subplots(facecolor="white")
     ax.set_facecolor("white")
     ax.plot(range(2, max_k), sil_scores, marker='o')
-    ax.tick_params(colors='black')
     st.pyplot(fig)
 
-    # Cluster selection
-    k = st.slider("Number of clusters", 2, max_k, min(3, max_k))
+    k = st.slider("Clusters", 2, max_k, 3)
 
     km = KMeans(n_clusters=k, random_state=42)
     clusters = km.fit_predict(pca_res)
 
-    scores = pd.DataFrame(
-        pca_res,
-        index=data.index,
-        columns=[f'PC{i+1}' for i in range(n_pc)]
-    )
+    scores = pd.DataFrame(pca_res, index=data.index, columns=[f'PC{i+1}' for i in range(n_pc)])
     scores['Cluster'] = clusters
 
-    # Auto label clusters
     centroids = scores.groupby('Cluster').mean().sort_values(by='PC1')
     mapping = {old: f'Cluster_{i+1}' for i, old in enumerate(centroids.index)}
     scores['Cluster_Label'] = scores['Cluster'].map(mapping)
 
-    # PCA plot
+    # PCA plot (white background)
     st.subheader("PCA Plot")
-    fig = px.scatter(scores, x='PC1', y='PC2', color='Cluster_Label')
+    fig = px.scatter(scores, x='PC1', y='PC2', color='Cluster_Label', opacity=1.0, color_discrete_sequence=px.colors.qualitative.Dark24)
     fig.update_layout(
         plot_bgcolor="white",
         paper_bgcolor="white",
+    
         font=dict(color="black"),
-        xaxis=dict(showgrid=False, showline=True, linecolor="black"),
-        yaxis=dict(showgrid=False, showline=True, linecolor="black")
+    
+        xaxis=dict(
+            showgrid=False,
+            zeroline=False,
+            showline=True,
+            linecolor="black",
+            linewidth=1.5,
+            title_font=dict(color="black"),
+            tickfont=dict(color="black"),
+            color="black"
+        ),
+        yaxis=dict(
+            showgrid=False,
+            zeroline=False,
+            showline=True,
+            linecolor="black",
+            linewidth=1.5,
+            title_font=dict(color="black"),
+            tickfont=dict(color="black"),
+            color="black"
+        ),
+    
+        legend=dict(
+            title_font=dict(color="black"),
+            font=dict(color="black")
+        )
     )
     st.plotly_chart(fig)
 
     # -----------------------------
-    # Differential analysis
+    # Differential
     # -----------------------------
     eps = 1e-6
     rows = []
@@ -152,9 +163,9 @@ if uploaded_file:
             if len(v1) > 0 and len(v2) > 0:
                 _, p = ttest_ind(v1, v2, equal_var=False)
                 fc = np.log2((v1.mean()+eps)/(v2.mean()+eps))
-                rows.append([cl, col, fc, p])
+                rows.append([cl, col, fc, p, v1.mean(), v2.mean()])
 
-    diff = pd.DataFrame(rows, columns=["Cluster","Crosslink","log2FC","p"])
+    diff = pd.DataFrame(rows, columns=["Cluster","Crosslink","log2FC","p","mean_cluster","mean_other"])
 
     diff['q'] = np.nan
     for cl in diff['Cluster'].unique():
@@ -163,50 +174,127 @@ if uploaded_file:
 
     diff['-log10p'] = -np.log10(diff['p'])
 
-    # -----------------------------
-    # Volcano plot (FINAL FIX)
+   # -----------------------------
+    # Volcano plot (NO CAPPING)
     # -----------------------------
     st.subheader("Volcano Plot")
-
+    
     fc_thresh = st.slider("log2FC threshold", 0.0, 5.0, 1.0)
     q_thresh = st.slider("FDR threshold", 0.0001, 0.2, 0.05)
-
-    y_thresh = -np.log10(q_thresh)
-
-    diff["AboveThreshold"] = diff["-log10p"] >= y_thresh
-
-    color_map = dict(zip(diff["Cluster"].unique(), px.colors.qualitative.Dark24))
-
-    def assign_color(row):
-        if not row["AboveThreshold"]:
-            return "lightgray"
-        return color_map[row["Cluster"]]
-
-    diff["PlotColor"] = diff.apply(assign_color, axis=1)
-
-    fig = px.scatter(
-        diff,
-        x="log2FC",
-        y="-log10p",
-        color="PlotColor",
-        hover_data=["Crosslink"]
+    
+    import plotly.graph_objects as go
+    
+    # --- Define significance ---
+    sig_mask = (
+        (abs(diff["log2FC"]) > fc_thresh) &
+        (diff["q"] < q_thresh)
     )
-
-    fig.update_traces(showlegend=False)
-
+    
+    sig_df = diff[sig_mask]
+    nonsig_df = diff[~sig_mask]
+    
+    fig = go.Figure()
+    
+    # --- Non-significant (faded gray) ---
+    fig.add_trace(go.Scatter(
+        x=nonsig_df["log2FC"],
+        y=nonsig_df["-log10p"],
+        mode="markers",
+        marker=dict(
+            color="lightgray",
+            size=7,
+            opacity=0.25
+        ),
+        name="Not significant",
+        hoverinfo="skip"
+    ))
+    
+    # --- Significant (colored, bold) ---
+    # Use a proper discrete color palette
+    colors = px.colors.qualitative.Dark24
+    
+    for i, cluster in enumerate(sig_df["Cluster"].unique()):
+        sub = sig_df[sig_df["Cluster"] == cluster]
+    
+        fig.add_trace(go.Scatter(
+            x=sub["log2FC"],
+            y=sub["-log10p"],
+            mode="markers",
+            marker=dict(
+                color=colors[i % len(colors)],
+                size=8,
+                opacity=1.0,
+                line=dict(width=0.5, color="black")
+            ),
+            text=sub["Crosslink"],
+            name=str(cluster)
+        ))
+    
+    # --- Threshold lines ---
     fig.add_vline(x=fc_thresh, line_color="black", line_dash="dash")
     fig.add_vline(x=-fc_thresh, line_color="black", line_dash="dash")
-    fig.add_hline(y=y_thresh, line_color="black", line_dash="dash")
-
+    fig.add_hline(y=-np.log10(q_thresh), line_color="black", line_dash="dash")
+    
+    # --- Layout (your styling preserved) ---
     fig.update_layout(
         plot_bgcolor="white",
         paper_bgcolor="white",
+    
         font=dict(color="black"),
-        xaxis=dict(showgrid=False, showline=True, linecolor="black", title="log2FC"),
-        yaxis=dict(showgrid=False, showline=True, linecolor="black", title="-log10(p-value)")
+    
+        xaxis=dict(
+            showgrid=False,
+            zeroline=False,
+            showline=True,
+            linecolor="black",
+            linewidth=1.5,
+            title_font=dict(color="black"),
+            tickfont=dict(color="black"),
+            color="black",
+            title="log2FC"
+        ),
+        yaxis=dict(
+            showgrid=False,
+            zeroline=False,
+            showline=True,
+            linecolor="black",
+            linewidth=1.5,
+            title_font=dict(color="black"),
+            tickfont=dict(color="black"),
+            color="black",
+            title="-log10(p-value)"
+        ),
+    
+        legend=dict(
+            font=dict(color="black"),
+            title_font=dict(color="black")
+        )
     )
-
+    
     st.plotly_chart(fig)
+
+    # -----------------------------
+    # ON/OFF CROSS-LINK TABLES
+    # -----------------------------
+    st.subheader("Crosslinks Unique to Clusters")
+
+    unique_tables = {}
+
+    for cl in scores['Cluster_Label'].unique():
+        mask = scores['Cluster_Label'] == cl
+        g1 = data[mask]
+        g2 = data[~mask]
+
+        only_in_cluster = []
+
+        for col in data.columns:
+            if g1[col].mean() > 0 and g2[col].mean() == 0:
+                only_in_cluster.append(col)
+
+        unique_tables[cl] = pd.DataFrame({"Crosslink": only_in_cluster})
+
+        st.write(f"Only in {cl}")
+        st.dataframe(unique_tables[cl])
 
     # -----------------------------
     # Excel export
@@ -215,8 +303,7 @@ if uploaded_file:
 
     variance_df = pd.DataFrame({
         'PC': [f'PC{i+1}' for i in range(n_pc)],
-        'Explained Variance (%)': explained_var,
-        'Cumulative (%)': cumulative_var
+        'Explained Variance (%)': explained_var
     })
 
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
@@ -224,11 +311,14 @@ if uploaded_file:
         loadings.to_excel(writer, sheet_name="Loadings")
         variance_df.to_excel(writer, sheet_name="Variance")
         diff.to_excel(writer, sheet_name="Differential")
-        df.to_excel(writer, sheet_name="Original Data")
+        df.to_excel(writer, sheet_name="Original")
+
+        for cl, tbl in unique_tables.items():
+            tbl.to_excel(writer, sheet_name=f"Only_{cl}")
 
     st.download_button(
-        "Download Full Excel Output",
+        "Download Excel",
         data=output.getvalue(),
-        file_name="pca_analysis_full.xlsx",
+        file_name="final_analysis.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
