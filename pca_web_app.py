@@ -9,7 +9,6 @@ import plotly.express as px
 import matplotlib.pyplot as plt
 import io
 from scipy.stats import ttest_ind
-import plotly.express as px
 
 # -----------------------------
 # FDR correction
@@ -174,72 +173,33 @@ if uploaded_file:
 
     diff['-log10p'] = -np.log10(diff['p'])
 
-   # -----------------------------
+    # -----------------------------
     # Volcano plot (NO CAPPING)
     # -----------------------------
     st.subheader("Volcano Plot")
-    
+
     fc_thresh = st.slider("log2FC threshold", 0.0, 5.0, 1.0)
     q_thresh = st.slider("FDR threshold", 0.0001, 0.2, 0.05)
-    
-    import plotly.graph_objects as go
-    
-    # --- Define significance ---
-    sig_mask = (
-        (abs(diff["log2FC"]) > fc_thresh) &
-        (diff["q"] < q_thresh)
+
+    fig = px.scatter(
+        diff,
+        x="log2FC",
+        y="-log10p",
+        color="Cluster",
+        hover_data=["Crosslink"],
+        opacity=1.0,
+        color_discrete_sequence=px.colors.qualitative.Dark24
     )
-    
-    sig_df = diff[sig_mask]
-    nonsig_df = diff[~sig_mask]
-    
-    fig = go.Figure()
-    
-    # --- Non-significant (faded gray) ---
-    fig.add_trace(go.Scatter(
-        x=nonsig_df["log2FC"],
-        y=nonsig_df["-log10p"],
-        mode="markers",
-        marker=dict(
-            color="lightgray",
-            size=7,
-            opacity=0.25
-        ),
-        name="Not significant",
-        hoverinfo="skip"
-    ))
-    
-    # --- Significant (colored, bold) ---
-    # Use a proper discrete color palette
-    colors = px.colors.qualitative.Dark24
-    
-    for i, cluster in enumerate(sig_df["Cluster"].unique()):
-        sub = sig_df[sig_df["Cluster"] == cluster]
-    
-        fig.add_trace(go.Scatter(
-            x=sub["log2FC"],
-            y=sub["-log10p"],
-            mode="markers",
-            marker=dict(
-                color=colors[i % len(colors)],
-                size=8,
-                opacity=1.0,
-                line=dict(width=0.5, color="black")
-            ),
-            text=sub["Crosslink"],
-            name=str(cluster)
-        ))
-    
-    # --- Threshold lines ---
+
+    # --- OPTIONAL: threshold lines ---
     fig.add_vline(x=fc_thresh, line_color="black", line_dash="dash")
     fig.add_vline(x=-fc_thresh, line_color="black", line_dash="dash")
     fig.add_hline(y=-np.log10(q_thresh), line_color="black", line_dash="dash")
-    
-    # --- Layout (your styling preserved) ---
+
     fig.update_layout(
         plot_bgcolor="white",
         paper_bgcolor="white",
-    
+
         font=dict(color="black"),
     
         xaxis=dict(
@@ -250,8 +210,7 @@ if uploaded_file:
             linewidth=1.5,
             title_font=dict(color="black"),
             tickfont=dict(color="black"),
-            color="black",
-            title="log2FC"
+            color="black"
         ),
         yaxis=dict(
             showgrid=False,
@@ -261,8 +220,7 @@ if uploaded_file:
             linewidth=1.5,
             title_font=dict(color="black"),
             tickfont=dict(color="black"),
-            color="black",
-            title="-log10(p-value)"
+            color="black"
         ),
     
         legend=dict(
@@ -270,7 +228,9 @@ if uploaded_file:
             title_font=dict(color="black")
         )
     )
+
     
+
     st.plotly_chart(fig)
 
     # -----------------------------
