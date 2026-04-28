@@ -10,9 +10,6 @@ import matplotlib.pyplot as plt
 import io
 from scipy.stats import ttest_ind
 
-# -----------------------------
-# FDR correction
-# -----------------------------
 def benjamini_hochberg(pvals):
     pvals = np.array(pvals)
     n = len(pvals)
@@ -23,80 +20,43 @@ def benjamini_hochberg(pvals):
     qvals = np.minimum.accumulate(qvals[::-1])[::-1]
     return np.clip(qvals, 0, 1)
 
-# -----------------------------
-# App
-# -----------------------------
-st.title("PCA + Clustering + Volcano + Export")
+st.title("PCA + Clustering + Volcano")
 
 uploaded_file = st.file_uploader("Upload Excel file", type=["xlsx", "xls"])
 
 if uploaded_file:
 
     df = pd.read_excel(uploaded_file, header=0, index_col=0)
-    st.subheader("Raw Data")
-    st.dataframe(df)
-
-    # -----------------------------
-    # Data prep
-    # -----------------------------
     data = df.T.copy()
+
     scaler = StandardScaler()
     scaled = scaler.fit_transform(data)
 
-    # -----------------------------
     # PCA
-    # -----------------------------
     n_pc = st.slider("PCA components", 2, min(10, data.shape[1]), 2)
-
     pca = PCA(n_components=n_pc)
     pca_res = pca.fit_transform(scaled)
 
     explained_var = pca.explained_variance_ratio_ * 100
 
-    # Scree
-    st.subheader("Scree Plot")
-    fig, ax = plt.subplots(facecolor="white")
+    # Scree plot
+    fig, ax = plt.subplots()
+    fig.patch.set_facecolor("white")
     ax.set_facecolor("white")
+
     ax.plot(range(1, n_pc+1), explained_var, marker='o')
+    ax.set_xlabel("PC")
+    ax.set_ylabel("Variance (%)")
+
+    ax.title.set_color("black")
+    ax.xaxis.label.set_color("black")
+    ax.yaxis.label.set_color("black")
+    ax.tick_params(colors='black')
+
     st.pyplot(fig)
 
-    # Loadings
-    loadings = pd.DataFrame(
-        pca.components_.T,
-        index=data.columns,
-        columns=[f'PC{i+1}' for i in range(n_pc)]
-    )
-
-    # -----------------------------
-    # Clustering diagnostics
-    # -----------------------------
-    max_k = min(10, len(data))
-
-    st.subheader("Elbow Plot")
-    inertia = []
-    for k in range(1, max_k+1):
-        km = KMeans(n_clusters=k, random_state=42)
-        km.fit(pca_res)
-        inertia.append(km.inertia_)
-
-    fig, ax = plt.subplots(facecolor="white")
-    ax.set_facecolor("white")
-    ax.plot(range(1, max_k+1), inertia, marker='o')
-    st.pyplot(fig)
-
-    st.subheader("Silhouette Plot")
-    sil_scores = []
-    for k in range(2, max_k):
-        km = KMeans(n_clusters=k, random_state=42)
-        sil_scores.append(silhouette_score(pca_res, km.fit_predict(pca_res)))
-
-    fig, ax = plt.subplots(facecolor="white")
-    ax.set_facecolor("white")
-    ax.plot(range(2, max_k), sil_scores, marker='o')
-    st.pyplot(fig)
-
-    k = st.slider("Clusters", 2, max_k, 3)
-
+    # Clustering
+    k = st.slider("Clusters", 2, min(10, len(data)), 3)
     km = KMeans(n_clusters=k, random_state=42)
     clusters = km.fit_predict(pca_res)
 
@@ -107,15 +67,18 @@ if uploaded_file:
     mapping = {old: f'Cluster_{i+1}' for i, old in enumerate(centroids.index)}
     scores['Cluster_Label'] = scores['Cluster'].map(mapping)
 
-    # PCA plot (white background)
-    st.subheader("PCA Plot")
+    # PCA plot
     fig = px.scatter(scores, x='PC1', y='PC2', color='Cluster_Label')
-    fig.update_layout(plot_bgcolor="white", paper_bgcolor="white")
+
+    fig.update_layout(
+        plot_bgcolor="white",
+        paper_bgcolor="white",
+        font=dict(color="black")
+    )
+
     st.plotly_chart(fig)
 
-    # -----------------------------
     # Differential
-    # -----------------------------
     eps = 1e-6
     rows = []
 
@@ -142,25 +105,16 @@ if uploaded_file:
 
     diff['-log10p'] = -np.log10(diff['p'])
 
-    # -----------------------------
-    # Volcano plot (NO CAPPING)
-    # -----------------------------
-    st.subheader("Volcano Plot")
-
+    # Volcano
     fc_thresh = st.slider("log2FC threshold", 0.0, 5.0, 1.0)
     q_thresh = st.slider("FDR threshold", 0.0001, 0.2, 0.05)
 
-    fig = px.scatter(
-        diff,
-        x="log2FC",
-        y="-log10p",
-        color="Cluster",
-        hover_data=["Crosslink"]
-    )
+    fig = px.scatter(diff, x="log2FC", y="-log10p", color="Cluster")
 
     fig.update_layout(
         plot_bgcolor="white",
         paper_bgcolor="white",
+        font=dict(color="black"),
         xaxis_title="log2FC",
         yaxis_title="-log10(p-value)"
     )
@@ -170,53 +124,3 @@ if uploaded_file:
     fig.add_hline(y=-np.log10(q_thresh))
 
     st.plotly_chart(fig)
-
-    # -----------------------------
-    # ON/OFF CROSS-LINK TABLES
-    # -----------------------------
-    st.subheader("Crosslinks Unique to Clusters")
-
-    unique_tables = {}
-
-    for cl in scores['Cluster_Label'].unique():
-        mask = scores['Cluster_Label'] == cl
-        g1 = data[mask]
-        g2 = data[~mask]
-
-        only_in_cluster = []
-
-        for col in data.columns:
-            if g1[col].mean() > 0 and g2[col].mean() == 0:
-                only_in_cluster.append(col)
-
-        unique_tables[cl] = pd.DataFrame({"Crosslink": only_in_cluster})
-
-        st.write(f"Only in {cl}")
-        st.dataframe(unique_tables[cl])
-
-    # -----------------------------
-    # Excel export
-    # -----------------------------
-    output = io.BytesIO()
-
-    variance_df = pd.DataFrame({
-        'PC': [f'PC{i+1}' for i in range(n_pc)],
-        'Explained Variance (%)': explained_var
-    })
-
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        scores.to_excel(writer, sheet_name="Scores")
-        loadings.to_excel(writer, sheet_name="Loadings")
-        variance_df.to_excel(writer, sheet_name="Variance")
-        diff.to_excel(writer, sheet_name="Differential")
-        df.to_excel(writer, sheet_name="Original")
-
-        for cl, tbl in unique_tables.items():
-            tbl.to_excel(writer, sheet_name=f"Only_{cl}")
-
-    st.download_button(
-        "Download Excel",
-        data=output.getvalue(),
-        file_name="final_analysis.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
