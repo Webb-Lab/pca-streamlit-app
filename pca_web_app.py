@@ -170,6 +170,61 @@ if uploaded_file:
         )
     )
     st.plotly_chart(fig)
+    # -----------------------------
+    # 3D PCA Plot (if PC3 exists)
+    # -----------------------------
+    if n_pc >= 3:
+        st.subheader("3D PCA Plot")
+    
+        fig3d = px.scatter_3d(
+            scores,
+            x='PC1',
+            y='PC2',
+            z='PC3',
+            color='Cluster_Label',
+            opacity=1.0,
+            color_discrete_sequence=px.colors.qualitative.Dark24
+        )
+    
+        fig3d.update_layout(
+            plot_bgcolor="white",
+            paper_bgcolor="white",
+            font=dict(color="black"),
+    
+            scene=dict(
+                xaxis=dict(
+                    showgrid=False,
+                    zeroline=False,
+                    showline=True,
+                    linecolor="black",
+                    tickfont=dict(color="black"),
+                    title_font=dict(color="black")
+                ),
+                yaxis=dict(
+                    showgrid=False,
+                    zeroline=False,
+                    showline=True,
+                    linecolor="black",
+                    tickfont=dict(color="black"),
+                    title_font=dict(color="black")
+                ),
+                zaxis=dict(
+                    showgrid=False,
+                    zeroline=False,
+                    showline=True,
+                    linecolor="black",
+                    tickfont=dict(color="black"),
+                    title_font=dict(color="black")
+                )
+            ),
+    
+            legend=dict(
+                title_font=dict(color="black"),
+                font=dict(color="black")
+            )
+        )
+    
+        st.plotly_chart(fig3d)
 
     # -----------------------------
     # Differential
